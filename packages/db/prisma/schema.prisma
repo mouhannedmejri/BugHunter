@@ -1,0 +1,692 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://bughuntr:do691p9Lk9JO@localhost:5432/bughuntr"
+}
+
+// ─── ENUMS ───────────────────────────────────────────────
+
+enum PlatformRole {
+  SUPER_ADMIN
+  SUPPORT
+  AUDITOR
+  USER
+}
+
+enum OrgRole {
+  ORG_ADMIN
+  PROGRAM_MANAGER
+  REVIEWER
+  FINANCE
+  VIEWER
+}
+
+enum OrgStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum ProgramType {
+  PUBLIC
+  PRIVATE
+  CAMPAIGN
+  CHALLENGE
+  EMERGENCY
+}
+
+enum ProgramStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
+enum AssetType {
+  DOMAIN
+  SUBDOMAIN
+  IP_RANGE
+  MOBILE_APP
+  API
+  REPOSITORY
+  CLOUD
+  THIRD_PARTY
+  PHYSICAL
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFORMATIONAL
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  RECEIVED
+  NEEDS_INFO
+  TRIAGING
+  ACCEPTED
+  DUPLICATE
+  INFORMATIVE
+  NOT_APPLICABLE
+  OUT_OF_SCOPE
+  RESOLVED
+  REWARDED
+  CLOSED
+  ESCALATED
+}
+
+enum PayoutStatus {
+  PENDING_APPROVAL
+  APPROVED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum NotifChannel {
+  EMAIL
+  IN_APP
+  WEBHOOK
+  SMS
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  PAYPAL
+  CRYPTO
+  STRIPE
+}
+
+enum VulnCategory {
+  XSS
+  SQLI
+  RCE
+  SSRF
+  IDOR
+  CSRF
+  AUTH_BYPASS
+  PRIV_ESC
+  INFO_DISC
+  DOS
+  BUSINESS_LOGIC
+  CRYPTO
+  SUPPLY_CHAIN
+  OTHER
+}
+
+// ─── USERS ───────────────────────────────────────────────
+
+model User {
+  id                String           @id @default(cuid())
+  email             String           @unique
+  emailVerifiedAt   DateTime?
+  passwordHash      String?
+  platformRole      PlatformRole     @default(USER)
+  username          String           @unique
+  displayName       String?
+  avatarUrl         String?
+  bio               String?
+  website           String?
+  twitterHandle     String?
+  githubHandle      String?
+  country           String?          // ISO 3166-1 alpha-2
+  timezone          String?
+  totpSecret        String?          // encrypted
+  totpEnabled       Boolean          @default(false)
+  kycStatus         String?          // PENDING|VERIFIED|REJECTED
+  kycVerifiedAt     DateTime?
+  bannedAt          DateTime?
+  bannedReason      String?
+  lastLoginAt       DateTime?
+  onboardingStep    String           @default("COMPLETE") // CHOOSE_PATH | PENDING_ORG_APPROVAL | COMPLETE
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  deletedAt         DateTime?
+
+  // relations
+  sessions          Session[]
+  oauthAccounts     OAuthAccount[]
+  orgMemberships    OrganizationMember[]
+  programInvites    ProgramInvite[]
+  reports           Report[]
+  comments          Comment[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  payoutProfile     PayoutProfile?
+  rewards           Reward[]
+  reputationLog     ReputationEvent[]
+  apiKeys           ApiKey[]
+  loginHistory      LoginHistory[]
+  organizationsVerified Organization[] @relation("OrganizationVerifiedBy")
+  orgInvitesTargeted OrgInvite[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  deviceInfo   Json?    // ua, ip, location
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OAuthAccount {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String   // google|github|gitlab
+  providerUid  String
+  accessToken  String?  // encrypted
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerUid])
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  ip        String
+  userAgent String?
+  country   String?
+  success   Boolean
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── ORGANIZATIONS ────────────────────────────────────────
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  logoUrl       String?
+  website       String?
+  description   String?
+  billingEmail  String?
+  plan          String   @default("FREE") // FREE|STARTER|PRO|ENTERPRISE
+  status        OrgStatus @default(PENDING)
+  stripeCustomer String?
+  settings      Json     @default("{}")
+  verificationStatus         String    @default("PENDING") // PENDING|SUBMITTED|APPROVED|REJECTED
+  verificationSubmittedAt   DateTime?
+  verificationApprovedAt    DateTime?
+  verificationRejectedAt    DateTime?
+  verificationRejectedReason String?
+  verifiedBy                String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  verifiedByUser User?          @relation("OrganizationVerifiedBy", fields: [verifiedBy], references: [id])
+  members       OrganizationMember[]
+  programs      Program[]
+  invites       OrgInvite[]
+  apiKeys       ApiKey[]
+  ssoConfig     OrgSsoConfig?
+  auditLogs     AuditLog[]
+  orgVerification OrgVerification?
+}
+
+model OrgVerification {
+  id                  String   @id @default(cuid())
+  orgId               String   @unique
+  legalName           String
+  registrationNumber  String?
+  country             String
+  address             String
+  website             String
+  primaryUseCase      String
+  estimatedPrograms   Int
+  contactName         String
+  contactEmail        String
+  contactPhone        String?
+  documents           String[]
+  adminNotes          String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  org                 Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model OrganizationMember {
+  id     String   @id @default(cuid())
+  orgId  String
+  userId String
+  role   OrgRole
+  joinedAt DateTime @default(now())
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([orgId, userId])
+}
+
+model OrgInvite {
+  id        String   @id @default(cuid())
+  orgId     String
+  email     String
+  userId    String?
+  role      OrgRole
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, userId])
+}
+
+// ─── PROGRAMS ─────────────────────────────────────────────
+
+model Program {
+  id                  String        @id @default(cuid())
+  orgId               String
+  slug                String        @unique
+  title               String
+  description         String        // markdown
+  type                ProgramType
+  status              ProgramStatus @default(DRAFT)
+  launchAt            DateTime?
+  endAt               DateTime?
+  policy              Json          // safeHarbor, disclosure, duplicatePolicy, allowedMethods, forbiddenActions
+  rewardPolicy        Json          // tiers by severity: {CRITICAL: {min,max}, ...}
+  eligibilityRules    String?       // markdown
+  legalTerms          String?       // markdown
+  maxRewardUsd        Int?          // cents
+  totalPaidUsd        Int           @default(0)
+  allowPublicDisclosure Boolean     @default(false)
+  requiresInvite      Boolean       @default(false)
+  slaConfig           Json          @default("{}") // firstResponse, triageDecision, fix by severity
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
+
+  org                 Organization  @relation(fields: [orgId], references: [id])
+  assets              Asset[]
+  reports             Report[]
+  invites             ProgramInvite[]
+  tags                ProgramTag[]
+  slaRecords          SlaRecord[]
+  rewards             Reward[]
+
+  @@index([orgId, status])
+}
+
+model ProgramInvite {
+  id        String   @id @default(cuid())
+  programId String
+  userId    String?  // null = pending email invite
+  email     String?
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model ProgramTag {
+  id        String  @id @default(cuid())
+  programId String
+  tag       String
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  @@unique([programId, tag])
+}
+
+// ─── ASSETS / SCOPE ───────────────────────────────────────
+
+model Asset {
+  id            String    @id @default(cuid())
+  programId     String
+  type          AssetType
+  identifier    String    // domain, IP, bundle ID, etc.
+  description   String?
+  inScope       Boolean   @default(true)
+  verified      Boolean   @default(false)
+  verifiedAt    DateTime?
+  wildcardSupport Boolean @default(false)
+  tags          String[]
+  ownershipMeta Json?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  program       Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  reports       Report[]
+  scopeHistory  AssetScopeHistory[]
+
+  @@index([programId, inScope])
+  @@index([programId, deletedAt])
+}
+
+model AssetScopeHistory {
+  id        String   @id @default(cuid())
+  assetId   String
+  changedBy String
+  change    Json     // diff of fields changed
+  createdAt DateTime @default(now())
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+// ─── REPORTS ──────────────────────────────────────────────
+
+model Report {
+  id                String       @id @default(cuid())
+  programId         String
+  assetId           String?
+  submitterId       String
+  assigneeId        String?
+  title             String
+  vulnCategory      VulnCategory
+  severityEstimate  Severity
+  severityValidated Severity?
+  cvssScore         Float?
+  status            ReportStatus @default(DRAFT)
+  reproSteps        String       // markdown
+  impactExplanation String       // markdown
+  environmentInfo   Json?        // browser, os, app version
+  suggestedFix      String?
+  isDuplicate       Boolean      @default(false)
+  duplicateOfId     String?
+  isPubliclyDisclosed Boolean    @default(false)
+  disclosedAt       DateTime?
+  submittedAt       DateTime?
+  receivedAt        DateTime?
+  acceptedAt        DateTime?
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  externalTicketUrl String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  program           Program      @relation(fields: [programId], references: [id])
+  asset             Asset?       @relation(fields: [assetId], references: [id])
+  submitter         User         @relation(fields: [submitterId], references: [id])
+  attachments       Attachment[]
+  comments          Comment[]
+  statusHistory     ReportStatusHistory[]
+  slaRecords        SlaRecord[]
+  reward            Reward?
+  duplicateOf       Report?      @relation("Duplicates", fields: [duplicateOfId], references: [id])
+  duplicates        Report[]     @relation("Duplicates")
+  linkedReports     ReportLink[] @relation("ReportLinks")
+  linkedFrom        ReportLink[] @relation("ReportLinksFrom")
+
+  @@index([programId, status])
+  @@index([submitterId])
+  @@index([status])
+}
+
+model ReportStatusHistory {
+  id         String       @id @default(cuid())
+  reportId   String
+  fromStatus ReportStatus?
+  toStatus   ReportStatus
+  changedBy  String
+  reason     String?
+  createdAt  DateTime     @default(now())
+  report     Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+model ReportLink {
+  id         String  @id @default(cuid())
+  reportId   String
+  linkedId   String
+  linkType   String  // DUPLICATE|RELATED|CHAINED
+  report     Report  @relation("ReportLinks", fields: [reportId], references: [id])
+  linked     Report  @relation("ReportLinksFrom", fields: [linkedId], references: [id])
+  @@unique([reportId, linkedId])
+}
+
+// ─── ATTACHMENTS ──────────────────────────────────────────
+
+model Attachment {
+  id           String   @id @default(cuid())
+  reportId     String
+  uploaderId   String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  s3Key        String
+  isPublic     Boolean  @default(false)
+  scanStatus   String   @default("PENDING") // PENDING|CLEAN|INFECTED
+  scannedAt    DateTime?
+  createdAt    DateTime @default(now())
+  report       Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+}
+
+// ─── COMMENTS ─────────────────────────────────────────────
+
+model Comment {
+  id          String   @id @default(cuid())
+  reportId    String
+  authorId    String
+  body        String   // markdown
+  isInternal  Boolean  @default(false) // true = not visible to R
+  isTemplate  Boolean  @default(false)
+  readBy      String[] // userIds
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id])
+}
+
+// ─── SLA ──────────────────────────────────────────────────
+
+model SlaRecord {
+  id          String    @id @default(cuid())
+  reportId    String
+  programId   String
+  metricKey   String    // FIRST_RESPONSE|TRIAGE_DECISION|FIX
+  dueAt       DateTime
+  completedAt DateTime?
+  breached    Boolean   @default(false)
+  report      Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  program     Program   @relation(fields: [programId], references: [id])
+  @@unique([reportId, metricKey])
+}
+
+// ─── REWARDS & PAYOUTS ────────────────────────────────────
+
+model Reward {
+  id            String      @id @default(cuid())
+  reportId      String      @unique
+  programId     String
+  recipientId   String
+  amountUsd     Int         // cents
+  bonusUsd      Int         @default(0)
+  currency      String      @default("USD")
+  decision      String      // APPROVED|PARTIAL|NO_REWARD
+  reason        String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  payout        Payout?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  report        Report      @relation(fields: [reportId], references: [id])
+  program       Program     @relation(fields: [programId], references: [id])
+  recipient     User        @relation(fields: [recipientId], references: [id])
+}
+
+model Payout {
+  id              String        @id @default(cuid())
+  rewardId        String        @unique
+  payoutProfileId String
+  amountUsd       Int
+  method          PaymentMethod
+  status          PayoutStatus  @default(PENDING_APPROVAL)
+  providerRef     String?       // Stripe/Wise transaction ID
+  invoiceUrl      String?
+  failureReason   String?
+  processedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  reward          Reward        @relation(fields: [rewardId], references: [id])
+  profile         PayoutProfile @relation(fields: [payoutProfileId], references: [id])
+}
+
+model PayoutProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  legalName      String?
+  taxId          String?  // encrypted
+  country        String?
+  preferredMethod PaymentMethod @default(BANK_TRANSFER)
+  stripeAccountId String?
+  paypalEmail     String?
+  wiseAccountId   String?
+  walletAddress   String?
+  kycDocumentRef  String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payouts        Payout[]
+}
+
+// ─── REPUTATION ───────────────────────────────────────────
+
+model ReputationEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  reportId  String?
+  points    Int
+  reason    String   // ACCEPTED_CRITICAL|ACCEPTED_HIGH|FIRST_BLOOD|etc.
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────
+
+model Notification {
+  id        String        @id @default(cuid())
+  userId    String
+  type      String        // REPORT_STATUS_CHANGE|REWARD_APPROVED|etc.
+  channel   NotifChannel
+  subject   String?
+  body      String
+  data      Json?
+  readAt    DateTime?
+  sentAt    DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, readAt])
+}
+
+model NotificationPreference {
+  id        String        @id @default(cuid())
+  userId    String
+  type      String
+  channel   NotifChannel
+  enabled   Boolean       @default(true)
+  @@unique([userId, type, channel])
+}
+
+// ─── AUDIT LOGS ───────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  orgId      String?
+  action     String   // USER_BANNED|REPORT_STATUS_CHANGED|PAYOUT_APPROVED|etc.
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+  org        Organization? @relation(fields: [orgId], references: [id])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// ─── API KEYS ─────────────────────────────────────────────
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String?
+  orgId       String?
+  name        String
+  keyHash     String   @unique  // SHA-256 of actual key
+  prefix      String            // first 8 chars shown in UI
+  scopes      String[]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  user        User?        @relation(fields: [userId], references: [id])
+  org         Organization? @relation(fields: [orgId], references: [id])
+}
+
+// ─── WEBHOOKS ─────────────────────────────────────────────
+
+model Webhook {
+  id          String   @id @default(cuid())
+  orgId       String
+  url         String
+  secret      String   // HMAC signing secret, encrypted
+  events      String[]
+  isActive    Boolean  @default(true)
+  lastStatus  Int?
+  createdAt   DateTime @default(now())
+  deliveries  WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  webhookId   String
+  event       String
+  payload     Json
+  statusCode  Int?
+  response    String?
+  attempt     Int      @default(1)
+  deliveredAt DateTime?
+  createdAt   DateTime @default(now())
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+}
+
+model OrgSsoConfig {
+  id               String   @id @default(cuid())
+  orgId            String   @unique
+  providerType     String   // SAML|OIDC
+  metadataXml      String?
+  issuer           String?
+  entryPoint       String?
+  cert             String?
+  oidcIssuerUrl    String?
+  oidcClientId     String?
+  oidcClientSecret String?
+  oidcRedirectUri  String?
+  enabled          Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ─── TEMPLATES ────────────────────────────────────────────
+
+model ReplyTemplate {
+  id        String   @id @default(cuid())
+  orgId     String?  // null = platform-wide
+  name      String
+  body      String   // markdown with {{variables}}
+  createdBy String
+  createdAt DateTime @default(now())
+}

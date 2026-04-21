@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # ─── PostgreSQL 16 ────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: bughuntr-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: bughuntr
+      POSTGRES_PASSWORD: bughuntr_pass
+      POSTGRES_DB: bughuntr
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bughuntr']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis 7 ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bughuntr-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MinIO (S3-compatible) ────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: bughuntr-minio
+    restart: unless-stopped
+    ports:
+      - '9000:9000'  # API
+      - '9001:9001'  # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── MailHog (SMTP test) ──────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: bughuntr-mailhog
+    restart: unless-stopped
+    ports:
+      - '1025:1025'  # SMTP
+      - '8025:8025'  # Web UI
+
+  # ─── ClamAV (virus scanning) ─────────────────────────
+  clamav:
+    image: clamav/clamav:latest
+    container_name: bughuntr-clamav
+    restart: unless-stopped
+    ports:
+      - '3310:3310'
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  clamav_data:

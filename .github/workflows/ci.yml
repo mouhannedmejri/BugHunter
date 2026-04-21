@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: bughuntr
+          POSTGRES_PASSWORD: bughuntr_pass
+          POSTGRES_DB: bughuntr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm db:generate
+
+      - name: Type check
+        run: pnpm lint
+
+      - name: Run tests
+        run: pnpm test:ci
+        env:
+          DATABASE_URL: postgresql://bughuntr:bughuntr_pass@localhost:5432/bughuntr_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-test-jwt-secret-must-be-at-least-32-chars-long
+          JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-must-be-32-chars
+          S3_BUCKET: test-bucket
+          S3_ENDPOINT: http://localhost:9000
+          S3_KEY: minioadmin
+          S3_SECRET: minioadmin
+          RESEND_API_KEY: re_test_key
+          STRIPE_SECRET: sk_test_key
+          WISE_API_KEY: wise_test_key
+          TOTP_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+          CLAMAV_HOST: localhost
+          NODE_ENV: test
+
+      - name: Format check
+        run: pnpm format:check
