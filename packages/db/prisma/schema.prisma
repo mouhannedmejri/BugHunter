@@ -159,7 +159,8 @@ model User {
   oauthAccounts     OAuthAccount[]
   orgMemberships    OrganizationMember[]
   programInvites    ProgramInvite[]
-  reports           Report[]
+  reports           Report[]         @relation("ReportSubmitter")
+  assignedReports   Report[]         @relation("ReportAssignee")
   comments          Comment[]
   auditLogs         AuditLog[]
   notifications     Notification[]
@@ -314,6 +315,7 @@ model Program {
 
   org                 Organization  @relation(fields: [orgId], references: [id])
   assets              Asset[]
+  scopeGroups         ProgramScopeGroup[]
   reports             Report[]
   invites             ProgramInvite[]
   tags                ProgramTag[]
@@ -321,6 +323,23 @@ model Program {
   rewards             Reward[]
 
   @@index([orgId, status])
+}
+
+model ProgramScopeGroup {
+  id            String   @id @default(cuid())
+  programId     String
+  name          String
+  isDefault     Boolean  @default(false)
+  triageOptions Json     @default("{}")
+  rewardPolicy  Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  assets  Asset[]
+
+  @@unique([programId, name])
+  @@index([programId])
 }
 
 model ProgramInvite {
@@ -349,6 +368,7 @@ model ProgramTag {
 model Asset {
   id            String    @id @default(cuid())
   programId     String
+  scopeGroupId  String?
   type          AssetType
   identifier    String    // domain, IP, bundle ID, etc.
   description   String?
@@ -364,11 +384,13 @@ model Asset {
   deletedAt     DateTime?
 
   program       Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  scopeGroup    ProgramScopeGroup? @relation(fields: [scopeGroupId], references: [id], onDelete: SetNull)
   reports       Report[]
   scopeHistory  AssetScopeHistory[]
 
   @@index([programId, inScope])
   @@index([programId, deletedAt])
+  @@index([scopeGroupId])
 }
 
 model AssetScopeHistory {
@@ -413,7 +435,8 @@ model Report {
 
   program           Program      @relation(fields: [programId], references: [id])
   asset             Asset?       @relation(fields: [assetId], references: [id])
-  submitter         User         @relation(fields: [submitterId], references: [id])
+  submitter         User         @relation("ReportSubmitter", fields: [submitterId], references: [id])
+  assignee          User?        @relation("ReportAssignee", fields: [assigneeId], references: [id])
   attachments       Attachment[]
   comments          Comment[]
   statusHistory     ReportStatusHistory[]

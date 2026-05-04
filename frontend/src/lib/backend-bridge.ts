@@ -42,6 +42,26 @@ const rewardTiersDefault: Program["rewardTiers"] = {
   INFORMATIONAL: { min: 0, max: 0 },
 };
 
+const mapRewardTiers = (input: unknown): Program["rewardTiers"] => {
+  const source = input && typeof input === "object" ? (input as Dict) : {};
+  const readTier = (severity: keyof Program["rewardTiers"]) => {
+    const tier = source[severity];
+    const record = tier && typeof tier === "object" ? (tier as Dict) : {};
+    return {
+      min: Number(record.min ?? 0),
+      max: Number(record.max ?? 0),
+    };
+  };
+
+  return {
+    CRITICAL: readTier("CRITICAL"),
+    HIGH: readTier("HIGH"),
+    MEDIUM: readTier("MEDIUM"),
+    LOW: readTier("LOW"),
+    INFORMATIONAL: readTier("INFORMATIONAL"),
+  };
+};
+
 const safeGet = async <T>(path: string): Promise<T | null> => {
   try {
     return await api.get<T>(path);
@@ -65,8 +85,12 @@ const parseReportId = (pathname: string): string | null => {
   return match ? decodeURIComponent(match[1]) : null;
 };
 
-const mapProgram = (p: Dict): Program => {
-  const maxReward = Number(p.maxRewardUsd ?? 0);
+/** Maps a program row from `/programs` or program detail into researcher `Program` UI shape. */
+export const mapProgram = (p: Dict): Program => {
+  const rewardTiers = mapRewardTiers(p.rewardPolicy);
+  const maxFromTiers = Math.max(...Object.values(rewardTiers).map((tier) => tier.max), 0);
+  const minFromTiers = Math.min(...Object.values(rewardTiers).map((tier) => tier.min).filter((v) => v > 0), 0);
+  const maxReward = Number(p.maxRewardUsd ?? maxFromTiers);
   const totalPaid = Number(p.totalPaidUsd ?? 0);
   const org = (p.org as Dict | undefined) ?? {};
 
@@ -79,7 +103,7 @@ const mapProgram = (p: Dict): Program => {
     status: (String(p.status ?? "DRAFT") as Program["status"]),
     orgName: String(org.name ?? "Unknown Org"),
     orgLogo: typeof org.logoUrl === "string" ? org.logoUrl : undefined,
-    rewardRange: { min: 0, max: maxReward },
+    rewardRange: { min: minFromTiers, max: maxReward },
     openReports: Number(p.openReports ?? 0),
     totalPaid,
     createdAt: String(p.createdAt ?? new Date().toISOString()),
@@ -94,7 +118,7 @@ const mapProgram = (p: Dict): Program => {
           inScope: Boolean(a.inScope),
         }))
       : [],
-    rewardTiers: rewardTiersDefault,
+    rewardTiers,
     eligibility: typeof p.eligibilityRules === "string" ? p.eligibilityRules : undefined,
     safeHarbor:
       typeof (p.policy as Dict | undefined)?.safeHarbor === "string"

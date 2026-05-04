@@ -292,4 +292,21 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.send({ data });
     },
   );
+
+  app.get('/admin/usersStats', { preHandler: adminPreHandlers(app), config: { rateLimit: ADMIN_RATE_LIMIT } }, async (_request, reply) => {
+    const data = await AdminService.getUsersStats();
+    return reply.send({ data });
+  });
+  app.get('/admin/raportStats',{ preHandler: adminPreHandlers(app), config: { rateLimit: ADMIN_RATE_LIMIT } }, async (_request, reply) => {
+    const data = await AdminService.getReportsStats();
+    return reply.send({ data });
+  });
+  app.get('/admin/user/:id', { preHandler: adminPreHandlers(app) }, async (request, reply) => {
+  const { id } = idParamsSchema.parse(request.params);
+  const data = await AdminService.getUserDetails(id);
+  return reply.send({ data });
+});
 }
+
+
+

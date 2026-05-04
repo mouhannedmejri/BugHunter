@@ -105,19 +105,16 @@ describe('OnboardingService', () => {
     );
   });
 
-  it('skipInviteWait returns onboardingStep COMPLETE when step is CHOOSE_PATH', async () => {
+  it('skipInviteWait rejects when step is CHOOSE_PATH (skip disabled)', async () => {
     mocks.userFindFirst.mockResolvedValue({
       id: 'u1',
       onboardingStep: 'CHOOSE_PATH',
     });
-    mocks.userUpdate.mockResolvedValue({});
 
-    const out = await OnboardingService.skipInviteWait('u1');
-    expect(out).toEqual({ onboardingStep: 'COMPLETE' });
-    expect(mocks.userUpdate).toHaveBeenCalledWith({
-      where: { id: 'u1' },
-      data: { onboardingStep: 'COMPLETE' },
-    });
+    await expect(OnboardingService.skipInviteWait('u1')).rejects.toThrow(
+      /Skipping onboarding is disabled/i,
+    );
+    expect(mocks.userUpdate).not.toHaveBeenCalled();
   });
 
   it('skipInviteWait rejects when not CHOOSE_PATH', async () => {

@@ -52,6 +52,7 @@ export const apiPaths = {
   organizations: {
     root: '/organizations',
     bySlug: (slug: string) => `/organizations/${slug}`,
+    verify: (slug: string) => `/organizations/${slug}/verify`,
     members: (slug: string) => `/organizations/${slug}/members`,
     inviteMember: (slug: string) => `/organizations/${slug}/members/invite`,
     invites: (slug: string) => `/organizations/${slug}/invites`,
@@ -109,6 +110,9 @@ export const apiPaths = {
     inviteById: (slug: string, id: string) => `/programs/${slug}/invites/${id}`,
     join: (slug: string) => `/programs/${slug}/join`,
     assets: (slug: string) => `/programs/${slug}/assets`,
+    scopeGroups: (slug: string) => `/programs/${slug}/scope-groups`,
+    scopeGroupById: (slug: string, scopeGroupId: string) =>
+      `/programs/${slug}/scope-groups/${scopeGroupId}`,
     assetById: (slug: string, id: string) => `/programs/${slug}/assets/${id}`,
     toggleAssetScope: (slug: string, id: string) => `/programs/${slug}/assets/${id}/toggle-scope`,
     importAssets: (slug: string) => `/programs/${slug}/assets/import`,
@@ -118,6 +122,7 @@ export const apiPaths = {
   },
 
   reports: {
+    create: '/reports',
     me: '/reports/me',
     byId: (id: string) => `/reports/${id}`,
     submit: (id: string) => `/reports/${id}/submit`,

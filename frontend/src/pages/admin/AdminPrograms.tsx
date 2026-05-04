@@ -10,6 +10,7 @@ import { SeverityBadge } from "@/components/SeverityBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { mockAdminPrograms } from "@/lib/admin-mock-data";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const typeColors: Record<string, string> = {
   PUBLIC: "bg-success/10 text-success border-success/20",
@@ -19,6 +20,7 @@ const typeColors: Record<string, string> = {
 };
 
 const AdminPrograms = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeTarget, setCloseTarget] = useState<string | null>(null);
@@ -68,7 +70,7 @@ const AdminPrograms = () => {
                       <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => toast.info(`View ${p.title}`)}><Eye className="mr-2 h-3.5 w-3.5" /> View</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/admin/programs/${p.id}`)}><Eye className="mr-2 h-3.5 w-3.5" /> View</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive" onClick={() => { setCloseTarget(p.id); setCloseOpen(true); }}>
                         <XCircle className="mr-2 h-3.5 w-3.5" /> Force Close
                       </DropdownMenuItem>

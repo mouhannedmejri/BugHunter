@@ -37,27 +37,18 @@ import {
 import { Search, MoreHorizontal, Ban, Eye, UserCog, LogIn, Building2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import {User,PlatformRole,KycStatus} from '@/interfaces/Interfaces'
 
-type PlatformRole = "SUPER_ADMIN" | "SUPPORT" | "AUDITOR" | "USER" | "ORG_MEMBER";
-type KycStatus = "NOT_STARTED" | "PENDING" | "VERIFIED" | "REJECTED";
 
-interface AdminUser {
-  id: string;
-  username: string;
-  email: string;
-  platformRole: PlatformRole;
-  kycStatus: KycStatus;
-  banned: boolean;
-  country: string;
-  joinedAt: string;
-  lastLogin: string;
-}
+
+
+
 
 const roleColors: Record<PlatformRole, string> = {
   SUPER_ADMIN: 'bg-destructive text-destructive-foreground',
   SUPPORT: 'bg-warning text-warning-foreground',
-  AUDITOR: 'bg-blue-500 text-white',
-  USER: 'bg-secondary text-secondary-foreground',
+  FINANCE_ADMIN: 'bg-blue-500 text-white',
+  RESEARCHER: 'bg-secondary text-secondary-foreground',
   ORG_MEMBER: 'bg-muted text-muted-foreground',
 };
 
@@ -80,15 +71,15 @@ const AdminUsers = () => {
   const [inviteTarget, setInviteTarget] = useState<{ id: string; username: string } | null>(null);
   const [inviteOrgId, setInviteOrgId] = useState('');
   const [inviteRole, setInviteRole] = useState('VIEWER');
-  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch users on component mount
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await api.get('/admin/users');
-        const fetchedUsers = Array.isArray(response) ? response : [];
+        const response = await api.get<{items: User[]}>('/admin/users');
+        const fetchedUsers = Array.isArray(response.items) ? response.items : [];
         setUsers(fetchedUsers);
       } catch (error) {
         console.error('Failed to fetch users:', error);
@@ -211,7 +202,7 @@ const AdminUsers = () => {
                   </TableCell>
                   <TableCell>
                     <Badge className={`text-[10px] ${kycColors[u.kycStatus]}`}>
-                      {u.kycStatus.replace('_', ' ')}
+                      {u.kycStatus?.replace('_', ' ')}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -225,11 +216,11 @@ const AdminUsers = () => {
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(u.joinedAt).toLocaleDateString()}
+                                    <TableCell>
+                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(u.lastLogin).toLocaleDateString()}
+                  <TableCell>
+                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'N/A'}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

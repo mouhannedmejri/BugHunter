@@ -1,8 +1,8 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { SeverityBadge } from "@/components/SeverityBadge";
@@ -12,16 +12,75 @@ import { CommentThread } from "@/components/CommentThread";
 import { AttachmentGallery } from "@/components/AttachmentGallery";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { SlaTimers } from "@/components/SlaTimers";
-import { mockDetailedReport, vulnerabilityCategories } from "@/lib/report-mock-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { vulnerabilityCategories } from "@/lib/report-mock-data";
+import type { DetailedReport } from "@/lib/report-mock-data";
 import { formatCurrency } from "@/lib/mock-data";
-import { ArrowLeft, Edit, ExternalLink, User, Clock } from "lucide-react";
+import { api, apiPaths } from "@/lib/api";
+import { ArrowLeft, Edit, ExternalLink } from "lucide-react";
 
 export default function ReportDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const report = mockDetailedReport; // In production: fetch by id
+  const [report, setReport] = useState<DetailedReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const categoryLabel = vulnerabilityCategories.find((c) => c.value === report.category)?.label ?? report.category;
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    api
+      .get<DetailedReport>(apiPaths.reports.byId(id))
+      .then((data) => {
+        setReport(data);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to load report");
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6">
+        <Skeleton className="h-10 w-32 mb-4" />
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-3 space-y-6">
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+          <div className="lg:col-span-2 space-y-4">
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 sm:p-6">
+        <div className="text-center py-12">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button onClick={() => navigate("/reports")}>Back to Reports</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!report) return null;
+
+  const categoryLabel =
+    vulnerabilityCategories.find((c) => c.value === report.category)?.label ??
+    report.category;
 
   return (
     <div className="p-4 sm:p-6">

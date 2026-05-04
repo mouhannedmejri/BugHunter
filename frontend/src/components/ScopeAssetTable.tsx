@@ -1,6 +1,6 @@
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Pencil, History } from "lucide-react";
+import { Pencil, History, Trash2 } from "lucide-react";
 import { AssetTypeIcon } from "@/components/AssetTypeIcon";
 import { Badge } from "@/components/ui/badge";
 import type { Asset } from "@/lib/mock-data";
@@ -9,10 +9,11 @@ interface ScopeAssetTableProps {
   assets: Asset[];
   onToggle?: (id: string) => void;
   onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
   readonly?: boolean;
 }
 
-export const ScopeAssetTable = ({ assets, onToggle, onEdit, readonly }: ScopeAssetTableProps) => {
+export const ScopeAssetTable = ({ assets, onToggle, onEdit, onDelete, readonly }: ScopeAssetTableProps) => {
   if (assets.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground text-sm">
@@ -61,6 +62,14 @@ export const ScopeAssetTable = ({ assets, onToggle, onEdit, readonly }: ScopeAss
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7">
                       <History className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => onDelete?.(asset.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </td>

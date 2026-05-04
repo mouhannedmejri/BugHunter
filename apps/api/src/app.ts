@@ -35,6 +35,7 @@ import { MAX_FILE_SIZE_BYTES, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS } from '@bugh
 
 export async function buildApp() {
   const app = Fastify({
+    maxParamLength: 1000,
     logger: {
       level: env.LOG_LEVEL,
       transport:

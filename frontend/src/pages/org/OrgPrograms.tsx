@@ -8,16 +8,39 @@ import { useQuery } from "@tanstack/react-query";
 import { api, apiPaths } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
+type RewardTier = { min: number; max: number };
+type RewardPolicy = Partial<Record<"CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFORMATIONAL", RewardTier>>;
+
 type OrgProgramRow = {
   id: string;
   slug: string;
   title: string;
   type: string;
   status: string;
+  rewardPolicy?: RewardPolicy;
+  inScopeDomains?: string[];
+  outOfScopeDomains?: string[];
   totalPaidUsd?: number;
   createdAt?: string;
   _count?: { reports?: number };
 };
+
+function summarizeRewardGrid(policy?: RewardPolicy) {
+  if (!policy) return "—";
+  const ordered: Array<keyof RewardPolicy> = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFORMATIONAL"];
+  const labels = ordered
+    .filter((severity) => policy[severity])
+    .map((severity) => {
+      const tier = policy[severity]!;
+      return `${severity}: ${formatCurrency(tier.min)}-${formatCurrency(tier.max)}`;
+    });
+  return labels.length ? labels.join(" | ") : "—";
+}
+
+function joinDomains(domains?: string[]) {
+  if (!domains || domains.length === 0) return "—";
+  return domains.join(", ");
+}
 
 const OrgPrograms = () => {
   const { orgSlug } = useParams();
@@ -54,9 +77,13 @@ const OrgPrograms = () => {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Reward Grid</TableHead>
+              <TableHead>In Scope Domains</TableHead>
+              <TableHead>Out of Scope Domains</TableHead>
               <TableHead className="text-right">Open Reports</TableHead>
               <TableHead className="text-right">Total Paid</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -83,6 +110,15 @@ const OrgPrograms = () => {
                     {p.status}
                   </Badge>
                 </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[360px]">
+                  <span className="line-clamp-2">{summarizeRewardGrid(p.rewardPolicy)}</span>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[280px]">
+                  <span className="line-clamp-2">{joinDomains(p.inScopeDomains)}</span>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[280px]">
+                  <span className="line-clamp-2">{joinDomains(p.outOfScopeDomains)}</span>
+                </TableCell>
                 <TableCell className="text-right font-mono">
                   {p._count?.reports ?? "—"}
                 </TableCell>
@@ -91,6 +127,16 @@ const OrgPrograms = () => {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "—"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to={`/org/${orgSlug}/members`}>Add User</Link>
+                    </Button>
+                    <Button size="sm" asChild>
+                      <Link to={`/org/${orgSlug}/programs/${p.slug}/settings`}>Manage</Link>
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

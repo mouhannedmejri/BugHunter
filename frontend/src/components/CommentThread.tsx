@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { Send, Lock } from "lucide-react";
+import { Send, Lock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Comment } from "@/lib/report-mock-data";
 import { cn } from "@/lib/utils";
+import { api, apiPaths } from "@/lib/api";
+import { useParams } from "react-router-dom";
 
 interface CommentThreadProps {
   comments: Comment[];
@@ -22,11 +24,25 @@ const roleBadge = (role: Comment["authorRole"]) => {
 
 export const CommentThread = ({ comments, isOrgMember = false }: CommentThreadProps) => {
   const [reply, setReply] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { id: reportId } = useParams<{ id: string }>();
   const visibleComments = isOrgMember ? comments : comments.filter((c) => !c.isInternal);
 
-  const handleSubmit = () => {
-    if (!reply.trim()) return;
-    setReply("");
+  const handleSubmit = async () => {
+    if (!reply.trim() || !reportId) return;
+    
+    setIsSubmitting(true);
+    try {
+      await api.post(apiPaths.reports.comments(reportId), { 
+        body: reply.trim(), 
+        isInternal: false 
+      });
+      setReply("");
+    } catch (error) {
+      console.error("Failed to post comment:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -77,8 +93,17 @@ export const CommentThread = ({ comments, isOrgMember = false }: CommentThreadPr
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit();
           }}
         />
-        <Button size="icon" className="shrink-0 self-end" onClick={handleSubmit} disabled={!reply.trim()}>
-          <Send className="h-4 w-4" />
+        <Button 
+          size="icon" 
+          className="shrink-0 self-end" 
+          onClick={handleSubmit} 
+          disabled={!reply.trim() || isSubmitting}
+        >
+          {isSubmitting ? (
+            <Loader2 className="h-3 w-3" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
         </Button>
       </div>
     </div>

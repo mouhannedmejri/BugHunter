@@ -13,6 +13,7 @@ export const assetIdParamSchema = z.object({
 export const createAssetBodySchema = z.object({
   type: z.nativeEnum(AssetType),
   identifier: z.string().min(1).max(500),
+  scopeGroupId: z.string().min(1),
   description: z.string().max(1000).nullable().optional(),
   inScope: z.boolean().optional(),
   wildcardSupport: z.boolean().optional(),
@@ -33,6 +34,7 @@ export const listAssetsQuerySchema = z.object({
     .optional()
     .transform((v) => (v === undefined ? undefined : v === 'true')),
   tag: z.string().max(64).optional(),
+  scopeGroupId: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().max(500).optional(),
 });

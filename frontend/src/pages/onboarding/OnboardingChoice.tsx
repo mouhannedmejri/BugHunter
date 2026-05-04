@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Shield, Loader2 } from 'lucide-react';
+import { Building2, Loader2, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth-store';
-import { api } from '@/lib/api';
+import { api, apiPaths } from '@/lib/api';
 import { toast } from 'sonner';
 
 function generateSlug(name: string): string {
@@ -36,6 +36,7 @@ const OnboardingChoice = () => {
   const { user, setUser } = useAuthStore();
   const [showOrgForm, setShowOrgForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inviteToken, setInviteToken] = useState('');
 
   const {
     register,
@@ -86,19 +87,29 @@ const OnboardingChoice = () => {
     }
   };
 
-  const onSkipAsResearcher = async () => {
+  const onAcceptInviteCode = async () => {
+    const token = inviteToken.trim();
+    if (!token) {
+      toast.error('Please paste your invitation code.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const result = await api.skipOnboarding();
+      const result = await api.post<{ orgSlug: string; role: string }>(apiPaths.invites.accept(token));
 
       if (user) {
-        setUser({ ...user, onboardingStep: result.onboardingStep });
+        setUser({
+          ...user,
+          onboardingStep: 'COMPLETE',
+          orgMemberships: [{ org: { slug: result.orgSlug } }],
+        });
       }
 
-      toast.success('Welcome to BugHuntr!');
-      navigate('/dashboard');
+      toast.success('Invitation accepted.');
+      navigate(`/org/${result.orgSlug}`);
     } catch (err) {
-      toast.error('Failed to continue');
+      toast.error('Failed to accept invitation code.');
     } finally {
       setIsSubmitting(false);
     }
@@ -113,8 +124,12 @@ const OnboardingChoice = () => {
       <div className="max-w-2xl w-full space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight">
-            Welcome to BugHuntr — how would you like to get started?
+            Organization onboarding
           </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Choose one: create a new organization, or join an existing one using your unique invite
+            link/code.
+          </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -183,32 +198,39 @@ const OnboardingChoice = () => {
           <Card className="hover:border-primary/50 transition-colors">
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <Shield className="h-6 w-6 text-green-500" />
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <KeyRound className="h-6 w-6 text-blue-500" />
                 </div>
-                <CardTitle className="text-lg">Join as a Researcher</CardTitle>
+                <CardTitle className="text-lg">Join Existing Organization</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <CardDescription className="mb-4">
-                Hunt for bugs on existing programs. Check your notifications for organization
-                invitations.
+                Paste your organization invitation code/token. Invite links are unique and can be
+                bound to your account.
               </CardDescription>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={onSkipAsResearcher}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Continue as Researcher
-              </Button>
+              <div className="space-y-3">
+                <Input
+                  value={inviteToken}
+                  onChange={(e) => setInviteToken(e.target.value)}
+                  placeholder="Paste invite token"
+                />
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={onAcceptInviteCode}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Accept Invitation
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <p className="text-center text-sm text-muted-foreground">
-          You can also accept an invitation from an organization via your notification bell.
+          You can also open your invite URL directly from email/notifications.
         </p>
       </div>
     </div>

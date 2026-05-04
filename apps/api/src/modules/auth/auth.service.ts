@@ -1,4 +1,4 @@
-import { prisma } from '@bughuntr/db';
+import { PlatformRole, prisma } from '@bughuntr/db';
 import { Queue } from 'bullmq';
 import {
   ConflictError,
@@ -42,13 +42,18 @@ export async function registerUser(body: RegisterBody) {
   if (existingUsername) throw new ConflictError('Username already taken');
 
   const passwordHash = await hashPassword(body.password);
-
+  const usertype = PlatformRole.USER;
+  const onboardingStep = body.accountType === 'COMPANY' ? 'CHOOSE_PATH' : 'COMPLETE';
   const user = await prisma.user.create({
     data: {
       email: body.email,
       username: body.username,
       displayName: body.displayName ?? body.username,
       passwordHash,
+      platformRole: usertype,
+      kycStatus: 'PENDING',
+      onboardingStep,
+
     },
     select: {
       id: true,
@@ -57,6 +62,8 @@ export async function registerUser(body: RegisterBody) {
       displayName: true,
       platformRole: true,
       createdAt: true,
+
+      
     },
   });
 
@@ -104,18 +111,23 @@ export async function verifyEmail(token: string) {
     throw new BadRequestError('Verification token has expired');
   }
 
-  await prisma.$transaction([
+  const [updatedUser] = await prisma.$transaction([
     prisma.user.update({
       where: { id: session.userId },
       data: {
+        // Keep onboarding step chosen at registration:
+        // - COMPANY users: CHOOSE_PATH
+        // - RESEARCHER users: COMPLETE
         emailVerifiedAt: new Date(),
-        onboardingStep: 'CHOOSE_PATH',
+      },
+      select: {
+        onboardingStep: true,
       },
     }),
     prisma.session.delete({ where: { id: session.id } }),
   ]);
 
-  return { verified: true, nextStep: 'CHOOSE_PATH' as const };
+  return { verified: true, nextStep: updatedUser.onboardingStep };
 }
 
 // ─── Login ───────────────────────────────────────────────
@@ -248,7 +260,12 @@ export async function resetPassword(token: string, newPassword: string) {
     prisma.session.deleteMany({
       where: {
         userId: session.userId,
-        deviceInfo: { path: ['type'], equals: undefined },
+        NOT: {
+          OR: [
+            { deviceInfo: { path: ['type'], equals: 'email_verification' } },
+            { deviceInfo: { path: ['type'], equals: 'password_reset' } },
+          ],
+        },
       },
     }),
   ]);
@@ -262,9 +279,11 @@ export async function listSessions(userId: string) {
   const sessions = await prisma.session.findMany({
     where: {
       userId,
-      deviceInfo: {
-        path: ['type'],
-        equals: undefined,
+      NOT: {
+        OR: [
+          { deviceInfo: { path: ['type'], equals: 'email_verification' } },
+          { deviceInfo: { path: ['type'], equals: 'password_reset' } },
+        ],
       },
     },
     select: {

@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ReputationTrend } from "@/components/ReputationTrend";
 import { ProgramCard } from "@/components/ProgramCard";
 import { api, apiPaths } from "@/lib/api";
+import { mapProgram } from "@/lib/backend-bridge";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import type { Report, Program, UserAnalytics, UserProfile } from "@/interfaces/Interfaces";
@@ -58,13 +59,16 @@ const Dashboard = () => {
           })),
         });
         setReports(reportsData.items ?? (reportsData as unknown as Report[]));
+        const rawPrograms = Array.isArray(programsData)
+          ? programsData
+          : programsData.items ?? [];
         setPrograms(
-          (programsData.items ?? (programsData as unknown as Program[])).filter(
-            (p) => p.status === "ACTIVE",
-          ),
+          rawPrograms
+            .map((p) => mapProgram((p as Record<string, unknown>) ?? {}))
+            .filter((p) => p.status === "ACTIVE"),
         );
       } catch {
-        // Errors are toasted globally by the api client interceptor
+        
       } finally {
         setLoading(false);
       }

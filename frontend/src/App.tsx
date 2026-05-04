@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -20,6 +20,7 @@ import OnboardingPending from './pages/onboarding/OnboardingPending.tsx';
 import OnboardingVerify from './pages/onboarding/OnboardingVerify.tsx';
 import ResearcherLayout from './components/ResearcherLayout.tsx';
 import Dashboard from './pages/researcher/Dashboard.tsx';
+import ResearcherDashboard from './app/(researcher)/dashboard/page.tsx';
 import Programs from './pages/researcher/Programs.tsx';
 import ProgramDetail from './pages/researcher/ProgramDetail.tsx';
 import Leaderboard from './pages/researcher/Leaderboard.tsx';
@@ -27,14 +28,13 @@ import SubmitReport from './pages/researcher/SubmitReport.tsx';
 import ReportDetail from './pages/researcher/ReportDetail.tsx';
 import MyReports from './pages/researcher/MyReports.tsx';
 import Profile from './pages/researcher/Profile.tsx';
-import ResearcherSettings from './pages/researcher/Settings.tsx';
+import UserSettings from './pages/shared/UserSettings.tsx';
 import Rewards from './pages/researcher/Rewards.tsx';
 import OrgLayout from './components/OrgLayout.tsx';
 import OrgOverview from './pages/org/Overview.tsx';
 import OrgPrograms from './pages/org/OrgPrograms.tsx';
 import ProgramWizard from './pages/org/ProgramWizard.tsx';
 import ProgramSettings from './pages/org/ProgramSettings.tsx';
-import ScopeManager from './pages/org/ScopeManager.tsx';
 import OrgMembers from './pages/org/Members.tsx';
 import OrgSettings from './pages/org/OrgSettings.tsx';
 import OrgIntegrations from './pages/org/OrgIntegrations.tsx';
@@ -47,6 +47,7 @@ import AdminDashboard from './pages/admin/AdminDashboard.tsx';
 import AdminUsers from './pages/admin/AdminUsers.tsx';
 import AdminOrganizations from './pages/admin/AdminOrganizations.tsx';
 import AdminPrograms from './pages/admin/AdminPrograms.tsx';
+import AdminProgramDetail from './pages/admin/AdminProgramDetail.tsx';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs.tsx';
 import AdminQueues from './pages/admin/AdminQueues.tsx';
 import AdminFeatureFlags from './pages/admin/AdminFeatureFlags.tsx';
@@ -117,6 +118,7 @@ const App = () => {
                 <Route element={<AuthGuard allowedTarget="RESEARCHER" />}>
                   <Route element={<ResearcherLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/dashboard/new" element={<ResearcherDashboard />} />
                     <Route path="/programs" element={<Programs />} />
                     <Route path="/programs/:slug" element={<ProgramDetail />} />
                     <Route path="/programs/:slug/submit" element={<SubmitReport />} />
@@ -125,7 +127,7 @@ const App = () => {
                     <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/:username" element={<Profile />} />
-                    <Route path="/settings" element={<ResearcherSettings />} />
+                    <Route path="/settings" element={<UserSettings />} />
                     <Route path="/rewards" element={<Rewards />} />
                   </Route>
                 </Route>
@@ -141,10 +143,11 @@ const App = () => {
                     />
                     <Route
                       path="/org/:orgSlug/programs/:programSlug/assets"
-                      element={<ScopeManager />}
+                      element={<Navigate to="../settings" replace />}
                     />
                     <Route path="/org/:orgSlug/members" element={<OrgMembers />} />
                     <Route path="/org/:orgSlug/settings" element={<OrgSettings />} />
+                    <Route path="/org/:orgSlug/user-settings" element={<UserSettings />} />
                     <Route path="/org/:orgSlug/integrations" element={<OrgIntegrations />} />
                     <Route path="/org/:orgSlug/billing" element={<OrgSettings />} />
                     <Route path="/org/:orgSlug/triage" element={<TriageQueue />} />
@@ -160,6 +163,7 @@ const App = () => {
                     <Route path="/admin/users" element={<AdminUsers />} />
                     <Route path="/admin/organizations" element={<AdminOrganizations />} />
                     <Route path="/admin/programs" element={<AdminPrograms />} />
+                    <Route path="/admin/programs/:id" element={<AdminProgramDetail />} />
                     <Route path="/admin/reports" element={<AdminDashboard />} />
                     <Route path="/admin/payouts" element={<AdminDashboard />} />
                     <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />

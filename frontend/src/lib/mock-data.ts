@@ -78,45 +78,45 @@ export const mockReports: Report[] = [
 
 export const mockPrograms: Program[] = [
   {
-    id: "p1", slug: "acme-corp", title: "Acme Corp Bug Bounty", description: "Acme Corp's public bug bounty program covers all web applications and APIs. We are committed to working with the security community to find vulnerabilities.\n\n## Rules of Engagement\n- Do not access other users' data\n- Do not perform destructive testing\n- Report vulnerabilities promptly\n\n## Rewards\nWe pay competitive bounties based on impact and severity.", type: "PUBLIC", status: "ACTIVE", orgName: "Acme Corporation", rewardRange: { min: 10000, max: 1000000 }, openReports: 12, totalPaid: 2500000, createdAt: "2025-06-01T00:00:00Z", requiresInvite: false,
+    id: "c7q2k8mnd12w4x5yz0abcde", slug: "acme-corp", title: "Acme Corp Bug Bounty", description: "Acme Corp's public bug bounty program covers all web applications and APIs. We are committed to working with the security community to find vulnerabilities.\n\n## Rules of Engagement\n- Do not access other users' data\n- Do not perform destructive testing\n- Report vulnerabilities promptly\n\n## Rewards\nWe pay competitive bounties based on impact and severity.", type: "PUBLIC", status: "ACTIVE", orgName: "Acme Corporation", rewardRange: { min: 10000, max: 1000000 }, openReports: 12, totalPaid: 2500000, createdAt: "2025-06-01T00:00:00Z", requiresInvite: false,
     rewardTiers: { CRITICAL: { min: 500000, max: 1000000 }, HIGH: { min: 200000, max: 500000 }, MEDIUM: { min: 50000, max: 200000 }, LOW: { min: 10000, max: 50000 }, INFORMATIONAL: { min: 0, max: 0 } },
     eligibility: "Open to all researchers worldwide. Must have a verified account.",
     safeHarbor: "We will not pursue legal action against researchers who follow our rules.",
     disclosurePolicy: "Coordinated disclosure after fix is deployed. 90-day disclosure window.",
     assets: [
-      { id: "a1", type: "DOMAIN", identifier: "*.acme.com", description: "All Acme web properties", inScope: true },
-      { id: "a2", type: "API", identifier: "api.acme.com/v1/*", description: "Public REST API", inScope: true },
-      { id: "a3", type: "MOBILE_APP", identifier: "com.acme.app (iOS/Android)", description: "Mobile application", inScope: true },
-      { id: "a4", type: "DOMAIN", identifier: "blog.acme.com", description: "Marketing blog (WordPress)", notes: "Third-party hosted", inScope: false },
+      { id: "c7q2k8mnd12w4x5yz0a1", type: "DOMAIN", identifier: "*.acme.com", description: "All Acme web properties", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0a2", type: "API", identifier: "api.acme.com/v1/*", description: "Public REST API", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0a3", type: "MOBILE_APP", identifier: "com.acme.app (iOS/Android)", description: "Mobile application", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0a4", type: "DOMAIN", identifier: "blog.acme.com", description: "Marketing blog (WordPress)", notes: "Third-party hosted", inScope: false },
     ],
   },
   {
-    id: "p2", slug: "cloudbase", title: "CloudBase Security Challenge", description: "Short-term challenge focused on our new cloud infrastructure. Extra bonuses for critical findings in the first 48 hours.", type: "CHALLENGE", status: "ACTIVE", orgName: "CloudBase Inc.", rewardRange: { min: 20000, max: 2000000 }, openReports: 5, totalPaid: 800000, createdAt: "2026-02-15T00:00:00Z", requiresInvite: false,
+    id: "c7q2k8mnd12w4x5yz0b", slug: "cloudbase", title: "CloudBase Security Challenge", description: "Short-term challenge focused on our new cloud infrastructure. Extra bonuses for critical findings in the first 48 hours.", type: "CHALLENGE", status: "ACTIVE", orgName: "CloudBase Inc.", rewardRange: { min: 20000, max: 2000000 }, openReports: 5, totalPaid: 800000, createdAt: "2026-02-15T00:00:00Z", requiresInvite: false,
     rewardTiers: { CRITICAL: { min: 1000000, max: 2000000 }, HIGH: { min: 300000, max: 1000000 }, MEDIUM: { min: 100000, max: 300000 }, LOW: { min: 20000, max: 100000 }, INFORMATIONAL: { min: 0, max: 0 } },
     assets: [
-      { id: "a5", type: "CLOUD", identifier: "*.cloudbase.io", description: "Cloud platform", inScope: true },
-      { id: "a6", type: "API", identifier: "api.cloudbase.io", description: "REST & GraphQL APIs", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0b1", type: "CLOUD", identifier: "*.cloudbase.io", description: "Cloud platform", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0b2", type: "API", identifier: "api.cloudbase.io", description: "REST & GraphQL APIs", inScope: true },
     ],
   },
   {
-    id: "p3", slug: "shieldnet", title: "ShieldNet Private Program", description: "Invite-only program for our network security products. Selected researchers get early access to new features.", type: "PRIVATE", status: "ACTIVE", orgName: "ShieldNet Security", rewardRange: { min: 15000, max: 750000 }, openReports: 3, totalPaid: 1200000, createdAt: "2025-11-01T00:00:00Z", requiresInvite: true,
+    id: "c7q2k8mnd12w4x5yz0c", slug: "shieldnet", title: "ShieldNet Private Program", description: "Invite-only program for our network security products. Selected researchers get early access to new features.", type: "PRIVATE", status: "ACTIVE", orgName: "ShieldNet Security", rewardRange: { min: 15000, max: 750000 }, openReports: 3, totalPaid: 1200000, createdAt: "2025-11-01T00:00:00Z", requiresInvite: true,
     rewardTiers: { CRITICAL: { min: 400000, max: 750000 }, HIGH: { min: 150000, max: 400000 }, MEDIUM: { min: 50000, max: 150000 }, LOW: { min: 15000, max: 50000 }, INFORMATIONAL: { min: 0, max: 0 } },
     assets: [
-      { id: "a7", type: "DOMAIN", identifier: "app.shieldnet.com", description: "Main application", inScope: true },
-      { id: "a8", type: "IP_RANGE", identifier: "10.0.0.0/24", description: "Internal testing range", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0c1", type: "DOMAIN", identifier: "app.shieldnet.com", description: "Main application", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0c2", type: "IP_RANGE", identifier: "10.0.0.0/24", description: "Internal testing range", inScope: true },
     ],
   },
   {
-    id: "p4", slug: "datavault", title: "DataVault Campaign", description: "Focused campaign on our data encryption and storage services. We're looking for crypto-related vulnerabilities.", type: "CAMPAIGN", status: "ACTIVE", orgName: "DataVault Systems", rewardRange: { min: 25000, max: 1500000 }, openReports: 8, totalPaid: 3000000, createdAt: "2026-01-10T00:00:00Z", requiresInvite: false,
+    id: "c7q2k8mnd12w4x5yz0d", slug: "datavault", title: "DataVault Campaign", description: "Focused campaign on our data encryption and storage services. We're looking for crypto-related vulnerabilities.", type: "CAMPAIGN", status: "ACTIVE", orgName: "DataVault Systems", rewardRange: { min: 25000, max: 1500000 }, openReports: 8, totalPaid: 3000000, createdAt: "2026-01-10T00:00:00Z", requiresInvite: false,
     rewardTiers: { CRITICAL: { min: 750000, max: 1500000 }, HIGH: { min: 250000, max: 750000 }, MEDIUM: { min: 75000, max: 250000 }, LOW: { min: 25000, max: 75000 }, INFORMATIONAL: { min: 0, max: 0 } },
     assets: [
-      { id: "a9", type: "DOMAIN", identifier: "vault.datavault.io", description: "Vault web app", inScope: true },
-      { id: "a10", type: "API", identifier: "api.datavault.io/v2/*", description: "Encryption API", inScope: true },
-      { id: "a11", type: "REPOSITORY", identifier: "github.com/datavault/sdk", description: "Open-source SDK", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0d1", type: "DOMAIN", identifier: "vault.datavault.io", description: "Vault web app", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0d2", type: "API", identifier: "api.datavault.io/v2/*", description: "Encryption API", inScope: true },
+      { id: "c7q2k8mnd12w4x5yz0d3", type: "REPOSITORY", identifier: "github.com/datavault/sdk", description: "Open-source SDK", inScope: true },
     ],
   },
   {
-    id: "p5", slug: "fintech-secure", title: "FinTech Secure Bounty", description: "Our financial technology platform handles millions of transactions. Help us keep our customers safe.", type: "PUBLIC", status: "PAUSED", orgName: "FinTech Global", rewardRange: { min: 50000, max: 2500000 }, openReports: 0, totalPaid: 5000000, createdAt: "2025-03-01T00:00:00Z", requiresInvite: false,
+    id: "c7q2k8mnd12w4x5yz0e", slug: "fintech-secure", title: "FinTech Secure Bounty", description: "Our financial technology platform handles millions of transactions. Help us keep our customers safe.", type: "PUBLIC", status: "PAUSED", orgName: "FinTech Global", rewardRange: { min: 50000, max: 2500000 }, openReports: 0, totalPaid: 5000000, createdAt: "2025-03-01T00:00:00Z", requiresInvite: false,
     rewardTiers: { CRITICAL: { min: 1500000, max: 2500000 }, HIGH: { min: 500000, max: 1500000 }, MEDIUM: { min: 150000, max: 500000 }, LOW: { min: 50000, max: 150000 }, INFORMATIONAL: { min: 0, max: 0 } },
     assets: [],
   },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Upload, Shield, Bell, DollarSign, Key, Monitor, Smartphone, Copy, Eye, EyeOff, Plus, Trash2, ExternalLink } from "lucide-react";
+import { Upload, Shield, Bell, DollarSign, Key, Monitor, Smartphone, Copy, Eye, EyeOff, Plus, Trash2, ExternalLink, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, apiPaths } from "@/lib/api";
 import { toast } from "sonner";
@@ -230,14 +230,53 @@ const SecurityTab = () => {
 
 // ── Notifications Tab ──────────────────────────────────
 const NotificationsTab = () => {
+  const queryClient = useQueryClient();
   const types = [
-    "Report status changed", "New comment on report", "Reward issued",
-    "Program update", "Invitation received", "SLA warning",
+    { id: "REPORT_STATUS_CHANGE", label: "Report status changed" },
+    { id: "REPORT_COMMENT", label: "New comment on report" },
+    { id: "REWARD_ISSUED", label: "Reward issued" },
+    { id: "PROGRAM_UPDATE", label: "Program update" },
+    { id: "INVITATION_RECEIVED", label: "Invitation received" },
+    { id: "SLA_WARNING", label: "SLA warning" },
   ];
+  
   const [prefs, setPrefs] = useState<Record<string, { email: boolean; inApp: boolean }>>(
-    Object.fromEntries(types.map((t) => [t, { email: true, inApp: true }]))
+    Object.fromEntries(types.map((t) => [t.id, { email: true, inApp: true }]))
   );
   const [digest, setDigest] = useState("instant");
+
+  const { data: serverPrefs, isLoading } = useQuery({
+    queryKey: ["notifications", "preferences"],
+    queryFn: () => api.get<any[]>(apiPaths.notifications.preferences),
+  });
+
+  useEffect(() => {
+    if (serverPrefs && Array.isArray(serverPrefs)) {
+      const newPrefs = { ...prefs };
+      serverPrefs.forEach((p) => {
+        if (!newPrefs[p.type]) newPrefs[p.type] = { email: true, inApp: true };
+        if (p.channel === "EMAIL") newPrefs[p.type].email = p.enabled;
+        if (p.channel === "IN_APP") newPrefs[p.type].inApp = p.enabled;
+      });
+      setPrefs(newPrefs);
+    }
+  }, [serverPrefs]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const preferences = types.flatMap((t) => [
+        { type: t.id, channel: "EMAIL", enabled: prefs[t.id].email },
+        { type: t.id, channel: "IN_APP", enabled: prefs[t.id].inApp },
+      ]);
+      return api.put(apiPaths.notifications.preferences, { preferences });
+    },
+    onSuccess: () => {
+      toast.success("Preferences saved");
+      queryClient.invalidateQueries({ queryKey: ["notifications", "preferences"] });
+    },
+  });
+
+  if (isLoading) return <div className="p-4"><Loader2 className="animate-spin h-6 w-6" /></div>;
 
   return (
     <div className="space-y-6">
@@ -254,13 +293,13 @@ const NotificationsTab = () => {
             </TableHeader>
             <TableBody>
               {types.map((t) => (
-                <TableRow key={t}>
-                  <TableCell className="text-sm">{t}</TableCell>
+                <TableRow key={t.id}>
+                  <TableCell className="text-sm">{t.label}</TableCell>
                   <TableCell className="text-center">
-                    <Switch checked={prefs[t]?.email} onCheckedChange={(v) => setPrefs((p) => ({ ...p, [t]: { ...p[t], email: v } }))} />
+                    <Switch checked={prefs[t.id]?.email} onCheckedChange={(v) => setPrefs((p) => ({ ...p, [t.id]: { ...p[t.id], email: v } }))} />
                   </TableCell>
                   <TableCell className="text-center">
-                    <Switch checked={prefs[t]?.inApp} onCheckedChange={(v) => setPrefs((p) => ({ ...p, [t]: { ...p[t], inApp: v } }))} />
+                    <Switch checked={prefs[t.id]?.inApp} onCheckedChange={(v) => setPrefs((p) => ({ ...p, [t.id]: { ...p[t.id], inApp: v } }))} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -287,7 +326,7 @@ const NotificationsTab = () => {
               </div>
             ))}
           </RadioGroup>
-          <Button className="mt-4" onClick={() => toast.success("Preferences saved")}>Save</Button>
+          <Button className="mt-4" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>Save</Button>
         </CardContent>
       </Card>
     </div>
@@ -296,12 +335,52 @@ const NotificationsTab = () => {
 
 // ── Payout Tab ──────────────────────────────────────
 const PayoutTab = () => {
-  const [method, setMethod] = useState("bank");
-  const payments = [
-    { date: "2026-04-01", amount: 250000, method: "Bank Transfer", status: "COMPLETED" },
-    { date: "2026-03-15", amount: 80000, method: "PayPal", status: "COMPLETED" },
-    { date: "2026-03-01", amount: 500000, method: "Bank Transfer", status: "PROCESSING" },
-  ];
+  const queryClient = useQueryClient();
+  const [method, setMethod] = useState("BANK_TRANSFER");
+  const [formData, setFormData] = useState({
+    legalName: "",
+    country: "",
+    taxId: "",
+    paypalEmail: "",
+    walletAddress: "",
+  });
+
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["users", "payoutProfile"],
+    queryFn: () => api.get<any>(apiPaths.users.mePayoutProfile),
+  });
+
+  const { data: payouts = [] } = useQuery({
+    queryKey: ["users", "payouts"],
+    queryFn: () => api.get<any[]>(apiPaths.users.mePayouts).catch(() => []),
+  });
+
+  useEffect(() => {
+    if (profile) {
+      setMethod(profile.preferredMethod || "BANK_TRANSFER");
+      setFormData({
+        legalName: profile.legalName || "",
+        country: profile.country || "",
+        taxId: profile.taxId || "",
+        paypalEmail: profile.paypalEmail || "",
+        walletAddress: profile.walletAddress || "",
+      });
+    }
+  }, [profile]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      api.put(apiPaths.users.mePayoutProfile, {
+        preferredMethod: method,
+        ...formData,
+      }),
+    onSuccess: () => {
+      toast.success("Payment method saved");
+      queryClient.invalidateQueries({ queryKey: ["users", "payoutProfile"] });
+    },
+  });
+
+  if (isLoading) return <div className="p-4"><Loader2 className="animate-spin h-6 w-6" /></div>;
 
   return (
     <div className="space-y-6">
@@ -316,10 +395,10 @@ const PayoutTab = () => {
       <Card>
         <CardHeader><CardTitle className="text-base">Legal Information</CardTitle></CardHeader>
         <CardContent className="space-y-4 max-w-lg">
-          <div><Label>Legal Name</Label><Input defaultValue="John Doe" /></div>
+          <div><Label>Legal Name</Label><Input value={formData.legalName} onChange={(e) => setFormData(p => ({ ...p, legalName: e.target.value }))} /></div>
           <div className="grid grid-cols-2 gap-4">
-            <div><Label>Country</Label><Input defaultValue="United States" /></div>
-            <div><Label>Tax ID</Label><Input placeholder="SSN / Tax ID" /></div>
+            <div><Label>Country</Label><Input value={formData.country} onChange={(e) => setFormData(p => ({ ...p, country: e.target.value }))} /></div>
+            <div><Label>Tax ID</Label><Input value={formData.taxId} onChange={(e) => setFormData(p => ({ ...p, taxId: e.target.value }))} placeholder="SSN / Tax ID" /></div>
           </div>
         </CardContent>
       </Card>
@@ -329,9 +408,9 @@ const PayoutTab = () => {
         <CardContent className="space-y-4">
           <RadioGroup value={method} onValueChange={setMethod} className="flex gap-4">
             {[
-              { value: "bank", label: "Bank Transfer" },
-              { value: "paypal", label: "PayPal" },
-              { value: "crypto", label: "Cryptocurrency" },
+              { value: "BANK_TRANSFER", label: "Bank Transfer" },
+              { value: "PAYPAL", label: "PayPal" },
+              { value: "CRYPTO", label: "Cryptocurrency" },
             ].map((m) => (
               <div key={m.value} className="flex items-center gap-2">
                 <RadioGroupItem value={m.value} id={`pm-${m.value}`} />
@@ -341,36 +420,17 @@ const PayoutTab = () => {
           </RadioGroup>
 
           <div className="max-w-lg space-y-3">
-            {method === "bank" && (
-              <>
-                <div><Label>Bank Name</Label><Input placeholder="Bank of America" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Account Number</Label><Input placeholder="••••1234" /></div>
-                  <div><Label>Routing Number</Label><Input placeholder="021000021" /></div>
-                </div>
-              </>
+            {method === "BANK_TRANSFER" && (
+              <p className="text-sm text-muted-foreground">Stripe bank transfer integration goes here.</p>
             )}
-            {method === "paypal" && (
-              <div><Label>PayPal Email</Label><Input type="email" placeholder="you@example.com" /></div>
+            {method === "PAYPAL" && (
+              <div><Label>PayPal Email</Label><Input type="email" value={formData.paypalEmail} onChange={(e) => setFormData(p => ({ ...p, paypalEmail: e.target.value }))} placeholder="you@example.com" /></div>
             )}
-            {method === "crypto" && (
-              <>
-                <div><Label>Wallet Address</Label><Input placeholder="0x..." /></div>
-                <div><Label>Chain</Label>
-                  <Select defaultValue="ethereum">
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ethereum">Ethereum</SelectItem>
-                      <SelectItem value="bitcoin">Bitcoin</SelectItem>
-                      <SelectItem value="polygon">Polygon</SelectItem>
-                      <SelectItem value="solana">Solana</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
+            {method === "CRYPTO" && (
+              <div><Label>Wallet Address</Label><Input value={formData.walletAddress} onChange={(e) => setFormData(p => ({ ...p, walletAddress: e.target.value }))} placeholder="0x..." /></div>
             )}
           </div>
-          <Button onClick={() => toast.success("Payment method saved")}>Save</Button>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>Save</Button>
         </CardContent>
       </Card>
 
@@ -380,10 +440,11 @@ const PayoutTab = () => {
           <Table>
             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Amount</TableHead><TableHead>Method</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
             <TableBody>
-              {payments.map((p, i) => (
+              {payouts.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No payouts yet.</TableCell></TableRow>}
+              {payouts.map((p: any, i: number) => (
                 <TableRow key={i}>
-                  <TableCell className="text-sm">{new Date(p.date).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-sm font-medium">${(p.amount / 100).toLocaleString()}</TableCell>
+                  <TableCell className="text-sm">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-sm font-medium">${(p.amountUsd / 100).toLocaleString()}</TableCell>
                   <TableCell className="text-sm">{p.method}</TableCell>
                   <TableCell><Badge variant={p.status === "COMPLETED" ? "default" : "secondary"} className="text-[10px]">{p.status}</Badge></TableCell>
                   <TableCell><Button variant="ghost" size="sm"><ExternalLink className="h-3.5 w-3.5" /></Button></TableCell>

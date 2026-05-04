@@ -127,8 +127,15 @@ export class CommentService {
         select: { userId: true },
       });
       const orgMemberIds = new Set(orgMembers.map((m) => m.userId));
+      // Collect IDs to remove first to avoid modifying Set during iteration
+      const idsToRemove = [];
       for (const id of notifyIds) {
-        if (!orgMemberIds.has(id)) notifyIds.delete(id);
+        if (!orgMemberIds.has(id)) {
+          idsToRemove.push(id);
+        }
+      }
+      for (const id of idsToRemove) {
+        notifyIds.delete(id);
       }
     }
 

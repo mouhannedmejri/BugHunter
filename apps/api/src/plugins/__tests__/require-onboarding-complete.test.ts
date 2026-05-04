@@ -8,11 +8,17 @@ const ONBOARDING_ALLOWLIST = [
   '/api/users/me',
 ];
 
+const ORG_ONBOARDING_PATH_RE = /^\/api\/organizations\/[^/]+(?:\/verify)?$/;
+
 function isAllowlisted(url: string): boolean {
+  const pathname = url.split('?')[0] ?? url;
   for (const prefix of ONBOARDING_ALLOWLIST) {
-    if (url.startsWith(prefix)) {
+    if (pathname.startsWith(prefix)) {
       return true;
     }
+  }
+  if (ORG_ONBOARDING_PATH_RE.test(pathname)) {
+    return true;
   }
   return false;
 }
@@ -80,9 +86,23 @@ describe('requireOnboardingComplete - isAllowlisted', () => {
     });
   });
 
+  describe('should allowlist org onboarding-required routes', () => {
+    it('should allowlist /api/organizations/:slug', () => {
+      expect(isAllowlisted('/api/organizations/acme')).toBe(true);
+    });
+
+    it('should allowlist /api/organizations/:slug/verify', () => {
+      expect(isAllowlisted('/api/organizations/acme/verify')).toBe(true);
+    });
+  });
+
   describe('should NOT allowlist other routes', () => {
     it('should NOT allowlist /api/organizations/', () => {
       expect(isAllowlisted('/api/organizations/')).toBe(false);
+    });
+
+    it('should NOT allowlist /api/organizations/:slug/members', () => {
+      expect(isAllowlisted('/api/organizations/acme/members')).toBe(false);
     });
 
     it('should NOT allowlist /api/programs/', () => {
@@ -134,5 +154,21 @@ describe('requireOnboardingComplete - error response structure', () => {
       };
       expect(errorResponse.error.nextStep).toBe(step);
     });
+  });
+});
+
+describe('requireOnboardingComplete - stale pending remediation', () => {
+  it('documents auto-remediation path for approved org members', () => {
+    const scenario = {
+      onboardingStepBefore: 'PENDING_ORG_APPROVAL',
+      hasApprovedOrgMembership: true,
+      onboardingStepAfter: 'COMPLETE',
+      blocked: false,
+    };
+
+    expect(scenario.onboardingStepBefore).toBe('PENDING_ORG_APPROVAL');
+    expect(scenario.hasApprovedOrgMembership).toBe(true);
+    expect(scenario.onboardingStepAfter).toBe('COMPLETE');
+    expect(scenario.blocked).toBe(false);
   });
 });

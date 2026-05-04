@@ -29,6 +29,16 @@ export async function sendOrgInviteEmail(params: {
     />,
   );
 
+  if (env.NODE_ENV !== 'production') {
+    console.log('\n======================================================');
+    console.log(`[DEV] OUTBOUND EMAIL (ORG INVITE)`);
+    console.log(`To:      ${params.to}`);
+    console.log(`Subject: You're invited to ${params.orgName} on BugHuntr`);
+    console.log(`Role:    ${roleLabels[params.role] ?? params.role}`);
+    console.log(`Link:    ${params.acceptUrl}`);
+    console.log('======================================================\n');
+  }
+
   const { error } = await resend.emails.send({
     from: env.EMAIL_FROM,
     to: params.to,
@@ -37,6 +47,11 @@ export async function sendOrgInviteEmail(params: {
   });
 
   if (error) {
+    console.error(`Resend error: ${error.message}`);
+    if (env.NODE_ENV !== 'production') {
+      console.warn('Skipping email error in development. Invite was created but email was not sent.');
+      return;
+    }
     throw new Error(`Resend error: ${error.message}`);
   }
 }

@@ -1,27 +1,25 @@
 import type { Severity, ReportStatus, AssetType } from "./mock-data";
 
 export type VulnerabilityCategory =
-  | "XSS" | "SQL_INJECTION" | "CSRF" | "IDOR" | "RCE"
-  | "SSRF" | "AUTH_BYPASS" | "PRIVILEGE_ESCALATION" | "INFO_DISCLOSURE"
-  | "OPEN_REDIRECT" | "RATE_LIMITING" | "FILE_UPLOAD" | "SUBDOMAIN_TAKEOVER"
-  | "BUSINESS_LOGIC" | "CRYPTOGRAPHIC" | "OTHER";
+  | "XSS" | "SQLI" | "CSRF" | "IDOR" | "RCE"
+  | "SSRF" | "AUTH_BYPASS" | "PRIV_ESC" | "INFO_DISC"
+  | "DOS" | "BUSINESS_LOGIC" | "CRYPTO" | "SUPPLY_CHAIN"
+  | "OTHER";
 
 export const vulnerabilityCategories: { value: VulnerabilityCategory; label: string; icon: string }[] = [
   { value: "XSS", label: "Cross-Site Scripting (XSS)", icon: "🔴" },
-  { value: "SQL_INJECTION", label: "SQL Injection", icon: "💉" },
+  { value: "SQLI", label: "SQL Injection", icon: "💉" },
   { value: "CSRF", label: "Cross-Site Request Forgery", icon: "🔄" },
   { value: "IDOR", label: "Insecure Direct Object Reference", icon: "🔑" },
   { value: "RCE", label: "Remote Code Execution", icon: "💻" },
   { value: "SSRF", label: "Server-Side Request Forgery", icon: "🌐" },
   { value: "AUTH_BYPASS", label: "Authentication Bypass", icon: "🚪" },
-  { value: "PRIVILEGE_ESCALATION", label: "Privilege Escalation", icon: "⬆️" },
-  { value: "INFO_DISCLOSURE", label: "Information Disclosure", icon: "📄" },
-  { value: "OPEN_REDIRECT", label: "Open Redirect", icon: "↗️" },
-  { value: "RATE_LIMITING", label: "Rate Limiting Bypass", icon: "⏱️" },
-  { value: "FILE_UPLOAD", label: "File Upload Vulnerability", icon: "📎" },
-  { value: "SUBDOMAIN_TAKEOVER", label: "Subdomain Takeover", icon: "🏴" },
+  { value: "PRIV_ESC", label: "Privilege Escalation", icon: "⬆️" },
+  { value: "INFO_DISC", label: "Information Disclosure", icon: "📄" },
+  { value: "DOS", label: "Denial of Service", icon: "🛑" },
   { value: "BUSINESS_LOGIC", label: "Business Logic Flaw", icon: "🧩" },
-  { value: "CRYPTOGRAPHIC", label: "Cryptographic Issue", icon: "🔐" },
+  { value: "CRYPTO", label: "Cryptographic Issue", icon: "🔐" },
+  { value: "SUPPLY_CHAIN", label: "Supply Chain", icon: "🔗" },
   { value: "OTHER", label: "Other", icon: "❓" },
 ];
 
@@ -78,7 +76,7 @@ export interface DetailedReport {
 }
 
 export const mockDetailedReport: DetailedReport = {
-  id: "r1",
+  id: "c7q2k8mnd12w4x5yz0r1",
   title: "Stored XSS in profile bio field",
   programTitle: "Acme Corp Bug Bounty",
   programSlug: "acme-corp",

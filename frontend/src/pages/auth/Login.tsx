@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,6 +24,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isLoading } = useAuthStore();
 
   const {
@@ -39,8 +40,14 @@ const Login = () => {
       await login(data.email, data.password);
       toast.success('Welcome back!');
       const user = useAuthStore.getState().user;
+      const redirectTo = (location.state as { from?: { pathname?: string; search?: string } } | null)
+        ?.from;
 
-      // Check onboarding step first
+      if (redirectTo?.pathname?.startsWith('/invites/accept')) {
+        navigate(`${redirectTo.pathname}${redirectTo.search ?? ''}`, { replace: true });
+        return;
+      }
+
       if (user?.onboardingStep === 'CHOOSE_PATH') {
         navigate('/onboarding');
         return;

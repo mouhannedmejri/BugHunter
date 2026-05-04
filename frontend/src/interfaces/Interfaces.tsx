@@ -26,6 +26,13 @@ export type VulnerabilityCategory =
     joinedAt: string;
     status: "active" | "pending";
   }
+
+  export interface Payout {
+    id: string;
+    amount: number;
+    status: PayoutStatus;
+    createdAt: string;
+  }
   
   export interface AuditLogItem {
     id: string;
@@ -135,7 +142,15 @@ export interface Report {
   createdAt: string;
   reward?: number;
 }
-
+export interface Org {
+  id: string;
+  name: string;
+  slug: string;
+  plan: "FREE" | "PRO" | "ENTERPRISE";
+  programs: number;
+  members: number;
+  createdAt: string;
+}
 export interface LeaderboardEntry {
   rank: number;
   username: string;
@@ -145,6 +160,17 @@ export interface LeaderboardEntry {
   accepted: number;
   totalEarned: number;
   isCurrentUser?: boolean;
+}
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  platformRole: PlatformRole;
+  kycStatus: KycStatus;
+  banned: boolean;
+  country: string;
+  createdAt: string;
+  lastLoginAt: string;
 }
 
 export interface Attachment {
@@ -210,8 +236,31 @@ export interface AdminUser {
   banned: boolean;
   country: string;
   joinedAt: string;
-  lastLogin: string;
+  lastLoginAt: string;
 }
+
+export interface AdminUserDetails extends User {
+  displayName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  website: string | null;
+  twitterHandle: string | null;
+  githubHandle: string | null;
+  orgMemberships: Array<{
+    orgId: string;
+    orgName: string;
+    role: OrgRole;
+  }>;
+  reportsSubmitted: number;
+  reportsAccepted: number;
+  rewardsEarnedCents: number;
+  reputationPoints: number;
+  rank: number | null;
+  reputationHistory: Array<{ date: string; points: number }>;
+  rewardHistory: Array<{ date: string; amountCents: number }>;
+  
+}
+
 
 export interface AdminOrg {
   id: string;

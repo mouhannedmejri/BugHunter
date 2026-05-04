@@ -50,7 +50,8 @@ export const resetPasswordBodySchema = z.object({
   token: z.string().min(1),
   newPassword: z
     .string()
-    .min(8)
+    .min(8) 
+    
     .max(128)
     .regex(/[A-Z]/, 'Must contain uppercase')
     .regex(/[a-z]/, 'Must contain lowercase')

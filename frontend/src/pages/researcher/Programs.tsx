@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgramCard } from "@/components/ProgramCard";
 import { mockPrograms } from "@/lib/mock-data";
+import type { Program } from "@/lib/mock-data";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { api, apiPaths } from "@/lib/api";
+import { mapProgram } from "@/lib/backend-bridge";
 import {
   Select,
   SelectContent,
@@ -25,10 +29,18 @@ const Programs = () => {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sort, setSort] = useState<SortOption>("newest");
-  const [loading, setLoading] = useState(false);
+
+  const { data: programs = mockPrograms, isLoading } = useQuery({
+    queryKey: ["researcherPrograms"],
+    queryFn: async () => {
+      const response = await api.get<unknown[] | { items?: unknown[] }>(apiPaths.programs.root);
+      const raw = Array.isArray(response) ? response : response.items ?? [];
+      return raw.map((p) => mapProgram((p as Record<string, unknown>) ?? {}));
+    },
+  });
 
   const filtered = useMemo(() => {
-    let results = mockPrograms.filter((p) => {
+    let results = programs.filter((p) => {
       const matchSearch = !search || p.title.toLowerCase().includes(search.toLowerCase()) || p.orgName.toLowerCase().includes(search.toLowerCase());
       const matchType = typeFilter === "ALL" || p.type === typeFilter;
       const matchStatus = statusFilter === "ALL" || p.status === statusFilter;
@@ -42,7 +54,7 @@ const Programs = () => {
     });
 
     return results;
-  }, [search, typeFilter, statusFilter, sort]);
+  }, [programs, search, typeFilter, statusFilter, sort]);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -108,7 +120,7 @@ const Programs = () => {
       </div>
 
       {/* Grid */}
-      {loading ? (
+      {isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-4">

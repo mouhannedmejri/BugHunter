@@ -149,9 +149,14 @@ export class OrganizationService {
     return org;
   }
 
-  static async getOrganizationDetail(slug: string, viewerUserId: string): Promise<Organization> {
+  static async getOrganizationDetail(slug: string, viewerUserId: string) {
     const { org } = await OrganizationService.assertOrgMembership(viewerUserId, slug);
-    return org;
+    const orgWithVerification = await prisma.organization.findUnique({
+      where: { id: org.id },
+      include: { orgVerification: true },
+    });
+    if (!orgWithVerification) throw new NotFoundError('Organization');
+    return orgWithVerification;
   }
 
   static async updateOrganization(
@@ -170,11 +175,38 @@ export class OrganizationService {
     if (body.billingEmail !== undefined) data.billingEmail = body.billingEmail;
     if (body.logoUrl !== undefined) data.logoUrl = body.logoUrl;
 
+    const verificationData: Prisma.OrgVerificationUpdateInput = {};
+    if (body.legalName !== undefined) verificationData.legalName = body.legalName;
+    if (body.registrationNumber !== undefined) verificationData.registrationNumber = body.registrationNumber;
+    if (body.country !== undefined) verificationData.country = body.country;
+    if (body.address !== undefined) verificationData.address = body.address;
+    if (body.primaryUseCase !== undefined) verificationData.primaryUseCase = body.primaryUseCase;
+    if (body.estimatedPrograms !== undefined) verificationData.estimatedPrograms = body.estimatedPrograms;
+    if (body.contactName !== undefined) verificationData.contactName = body.contactName;
+    if (body.contactEmail !== undefined) verificationData.contactEmail = body.contactEmail;
+    if (body.contactPhone !== undefined) verificationData.contactPhone = body.contactPhone;
+
+    const hasVerificationUpdates = Object.keys(verificationData).length > 0;
+
     const updated = await prisma.$transaction(async (tx) => {
       const next = await tx.organization.update({
         where: { id: org.id },
         data,
       });
+      
+      if (hasVerificationUpdates) {
+        const existingVerification = await tx.orgVerification.findUnique({
+          where: { orgId: org.id },
+        });
+        
+        if (existingVerification) {
+          await tx.orgVerification.update({
+            where: { orgId: org.id },
+            data: verificationData,
+          });
+        }
+      }
+
       await tx.auditLog.create({
         data: {
           actorId: actorUserId,
@@ -188,7 +220,7 @@ export class OrganizationService {
       return next;
     });
 
-    return updated;
+    return await OrganizationService.getOrganizationDetail(updated.slug, actorUserId);
   }
 
   static async softDeleteOrganization(

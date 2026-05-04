@@ -20,6 +20,13 @@ export const rewardPolicySchema = z.object({
 });
 export type RewardPolicy = z.infer<typeof rewardPolicySchema>;
 
+export const scopeGroupTriageOptionsSchema = z.object({
+  duplicatePolicy: z.enum(['first', 'best']).default('first'),
+  autoAcceptLow: z.boolean().default(false),
+  requiresManualReview: z.boolean().default(true),
+});
+export type ScopeGroupTriageOptions = z.infer<typeof scopeGroupTriageOptionsSchema>;
+
 export const slaConfigSchema = z.object({
   firstResponseHours: z.number().int().positive().default(24),
   triageDecisionDays: z.number().int().positive().default(5),
@@ -99,3 +106,26 @@ export const programInviteIdParamsSchema = z.object({
   programSlug: z.string().min(1).max(80),
   id: z.string().min(1),
 });
+
+export const scopeGroupIdParamsSchema = z.object({
+  programSlug: z.string().min(1).max(80),
+  scopeGroupId: z.string().min(1),
+});
+
+export const createScopeGroupBodySchema = z.object({
+  name: z.string().min(1).max(120),
+  triageOptions: scopeGroupTriageOptionsSchema.default({
+    duplicatePolicy: 'first',
+    autoAcceptLow: false,
+    requiresManualReview: true,
+  }),
+  rewardPolicy: rewardPolicySchema,
+});
+export type CreateScopeGroupBody = z.infer<typeof createScopeGroupBodySchema>;
+
+export const updateScopeGroupBodySchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  triageOptions: scopeGroupTriageOptionsSchema.optional(),
+  rewardPolicy: rewardPolicySchema.optional(),
+});
+export type UpdateScopeGroupBody = z.infer<typeof updateScopeGroupBodySchema>;

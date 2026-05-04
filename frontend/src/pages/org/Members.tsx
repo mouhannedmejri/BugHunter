@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { api, apiPaths } from "@/lib/api";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "@/stores/auth-store";
 
 type MemberRow = {
   id: string;
@@ -38,6 +39,7 @@ type InviteRow = {
 
 const OrgMembers = () => {
   const { orgSlug } = useParams<{ orgSlug: string }>();
+  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -97,6 +99,10 @@ const OrgMembers = () => {
     },
   });
 
+  const currentUserId = user?.id;
+  const currentMembership = members.find((m) => m.userId === currentUserId);
+  const canManageMembers = currentMembership?.role === "ORG_ADMIN";
+
   if (loadingMembers) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -109,7 +115,11 @@ const OrgMembers = () => {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Members</h1>
-        <Button className="gap-1.5" onClick={() => setInviteOpen(true)}>
+        <Button
+          className="gap-1.5"
+          onClick={() => setInviteOpen(true)}
+          disabled={!canManageMembers}
+        >
           <UserPlus className="h-4 w-4" /> Invite Member
         </Button>
       </div>
@@ -173,7 +183,7 @@ const OrgMembers = () => {
                       onValueChange={(v) =>
                         roleMutation.mutate({ userId: m.userId, role: v as OrgRole })
                       }
-                      disabled={roleMutation.isPending}
+                      disabled={roleMutation.isPending || !canManageMembers}
                     >
                       <SelectTrigger className="h-8 w-[160px] text-xs">
                         <SelectValue />
@@ -195,15 +205,24 @@ const OrgMembers = () => {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={!canManageMembers && m.userId !== currentUserId}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => removeMutation.mutate(m.userId)}
-                        >
-                          Remove member
-                        </DropdownMenuItem>
+                        {(canManageMembers || m.userId === currentUserId) && (
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => removeMutation.mutate(m.userId)}
+                          >
+                            {m.userId === currentUserId ? "Leave organization" : "Remove member"}
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

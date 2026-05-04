@@ -105,14 +105,11 @@ export class OnboardingService {
     });
     if (!user) throw new NotFoundError('User');
     if (user.onboardingStep !== 'CHOOSE_PATH') {
-      throw new BadRequestError('Skip is only available when onboarding step is CHOOSE_PATH');
+      throw new BadRequestError('Onboarding action is only available when onboarding step is CHOOSE_PATH');
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { onboardingStep: 'COMPLETE' },
-    });
-
-    return { onboardingStep: 'COMPLETE' };
+    throw new BadRequestError(
+      'Skipping onboarding is disabled. Create an organization or accept an organization invitation.',
+    );
   }
 }

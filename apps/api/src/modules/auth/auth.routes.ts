@@ -86,7 +86,7 @@ export async function authRoutes(app: FastifyInstance) {
           DATE_TRUNC('day', "createdAt")::text as date,
           COUNT(*)::integer as users
         FROM "User" 
-        WHERE "createdAt" >= ${thirtyDaysAgo.toISOString()}
+        WHERE "createdAt" >= ${thirtyDaysAgo}
         GROUP BY DATE_TRUNC('day', "createdAt")
         ORDER BY date DESC
       ` as Array<{ date: string; users: number }>;

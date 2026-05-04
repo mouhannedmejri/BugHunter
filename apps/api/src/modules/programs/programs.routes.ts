@@ -2,12 +2,15 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { OrgRole } from '@bughuntr/db';
 import { ProgramService } from './programs.service.js';
 import {
+  createScopeGroupBodySchema,
   createProgramBodySchema,
   orgSlugParamsSchema,
   programInviteBodySchema,
   programInviteIdParamsSchema,
+  scopeGroupIdParamsSchema,
   programSlugParamsSchema,
   programStatusBodySchema,
+  updateScopeGroupBodySchema,
   updateProgramBodySchema,
 } from './programs.schemas.js';
 
@@ -110,6 +113,68 @@ export async function programsRoutes(app: FastifyInstance) {
         request.user.sub,
       );
       return reply.send({ data: stats });
+    },
+  );
+
+  app.post(
+    '/programs/:programSlug/scope-groups',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { programSlug } = programSlugParamsSchema.parse(request.params);
+      const body = createScopeGroupBodySchema.parse(request.body);
+      const group = await ProgramService.createScopeGroup(
+        programSlug,
+        request.user.sub,
+        body,
+      );
+      return reply.status(201).send({ data: group });
+    },
+  );
+
+  app.get(
+    '/programs/:programSlug/scope-groups',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { programSlug } = programSlugParamsSchema.parse(request.params);
+      const groups = await ProgramService.listScopeGroups(
+        programSlug,
+        request.user.sub,
+      );
+      return reply.send({ data: groups });
+    },
+  );
+
+  app.put(
+    '/programs/:programSlug/scope-groups/:scopeGroupId',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { programSlug, scopeGroupId } = scopeGroupIdParamsSchema.parse(
+        request.params,
+      );
+      const body = updateScopeGroupBodySchema.parse(request.body);
+      const group = await ProgramService.updateScopeGroup(
+        programSlug,
+        scopeGroupId,
+        request.user.sub,
+        body,
+      );
+      return reply.send({ data: group });
+    },
+  );
+
+  app.delete(
+    '/programs/:programSlug/scope-groups/:scopeGroupId',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { programSlug, scopeGroupId } = scopeGroupIdParamsSchema.parse(
+        request.params,
+      );
+      const result = await ProgramService.deleteScopeGroup(
+        programSlug,
+        scopeGroupId,
+        request.user.sub,
+      );
+      return reply.send({ data: result });
     },
   );
 

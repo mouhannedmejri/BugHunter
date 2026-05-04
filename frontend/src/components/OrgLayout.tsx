@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { OrgSidebar } from "@/components/OrgSidebar";
-import { ChevronDown, LogOut, Settings, User, ArrowLeftRight } from "lucide-react";
+import { ChevronDown, LogOut, Settings, User } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -43,9 +43,6 @@ const OrgLayout = () => {
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1.5 hidden sm:flex" asChild>
-                <Link to="/dashboard"><ArrowLeftRight className="h-3.5 w-3.5" /> Researcher View</Link>
-              </Button>
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -58,8 +55,20 @@ const OrgLayout = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild><Link to="/profile" className="cursor-pointer"><User className="mr-2 h-4 w-4" /> Profile</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link to="/settings" className="cursor-pointer"><Settings className="mr-2 h-4 w-4" /> Settings</Link></DropdownMenuItem>
+                  {user?.orgMemberships?.[0]?.org?.slug && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/org/${user.orgMemberships[0].org.slug}/user-settings`} className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" /> Profile Settings
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/org/${user.orgMemberships[0].org.slug}/settings`} className="cursor-pointer">
+                          <Settings className="mr-2 h-4 w-4" /> Org Settings
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="cursor-pointer text-destructive"

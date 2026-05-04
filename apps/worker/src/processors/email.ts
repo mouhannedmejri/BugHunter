@@ -39,6 +39,16 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
 
   job.log(`Sending email to ${to} | subject: "${subject ?? ''}" | template: ${templateKey}`);
 
+  if (env.NODE_ENV !== 'production') {
+    console.log('\n======================================================');
+    console.log(`[DEV] OUTBOUND EMAIL`);
+    console.log(`To:       ${to}`);
+    console.log(`Subject:  ${subject ?? 'BugHuntr notification'}`);
+    console.log(`Template: ${templateKey}`);
+    console.log(`Vars:     ${JSON.stringify(variables, null, 2)}`);
+    console.log('======================================================\n');
+  }
+
   try {
     // Render the email template
     const html = renderTemplate(templateKey, variables ?? {});
@@ -47,17 +57,29 @@ export async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
     const resend = new Resend(env.RESEND_API_KEY);
 
     // Send email via Resend
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: env.EMAIL_FROM,
       to,
       subject: subject ?? 'BugHuntr notification',
       html,
     });
 
-    job.log(`Email sent successfully to ${to}`);
-    console.info(`[email] Sent to=${to} subject="${subject}" template=${templateKey} vars=${JSON.stringify(variables)}`);
+    if (error) {
+      if (env.NODE_ENV !== 'production') {
+        console.warn(`[DEV] Resend error ignored: ${error.message}`);
+      } else {
+        throw new Error(`Resend error: ${error.message}`);
+      }
+    } else {
+      job.log(`Email sent successfully to ${to}`);
+      console.info(`[email] Sent to=${to} subject="${subject}" template=${templateKey} vars=${JSON.stringify(variables)}`);
+    }
   } catch (error) {
-    job.log(`Failed to render email template: ${error}`);
+    job.log(`Failed to send email: ${error}`);
+    if (env.NODE_ENV !== 'production') {
+      console.warn(`[DEV] Failed to send email ignored: ${error}`);
+      return;
+    }
     throw error;
   }
 }

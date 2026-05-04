@@ -54,8 +54,8 @@ const VerifyEmail = () => {
               <CheckCircle2 className="h-7 w-7 text-success" />
             </div>
             <p className="mb-6 text-sm text-muted-foreground">
-              Your email is confirmed. Sign in to continue onboarding: choose to run an organization (setup and
-              super-admin approval) or join as a researcher.
+              Your email is confirmed. Sign in to continue. Organization onboarding only appears for
+              organization accounts.
             </p>
             <Button asChild className="h-11 w-full">
               <Link to="/login">Go to sign in</Link>
@@ -88,7 +88,7 @@ const VerifyEmail = () => {
           <Mail className="h-7 w-7 text-primary" />
         </div>
         <p className="mb-6 text-sm text-muted-foreground">
-          Click the link in the email to verify your account, then sign in to finish onboarding. If you do not see the
+          Click the link in the email to verify your account, then sign in. If you do not see the
           message, check your spam folder.
         </p>
         <Button

@@ -40,6 +40,22 @@ const ASSET_DIFF_KEYS = [
 
 type AssetDiffKey = (typeof ASSET_DIFF_KEYS)[number];
 
+async function assertScopeGroupForProgram(
+  programId: string,
+  scopeGroupId: string,
+): Promise<void> {
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "ProgramScopeGroup"
+    WHERE "id" = ${scopeGroupId}
+      AND "programId" = ${programId}
+    LIMIT 1
+  `;
+  if (rows.length === 0) {
+    throw new BadRequestError('Invalid scope group');
+  }
+}
+
 function snapshotForHistory(a: Asset): Record<string, unknown> {
   const o: Record<string, unknown> = {};
   for (const k of ASSET_DIFF_KEYS) {
@@ -122,6 +138,7 @@ export type ListAssetsQuery = {
   type?: AssetType;
   inScope?: boolean;
   tag?: string;
+  scopeGroupId?: string;
   limit: number;
   cursor?: string;
 };
@@ -133,6 +150,7 @@ export class AssetService {
     body: CreateAssetBody,
   ): Promise<Asset> {
     const program = await assertPmOaForProgram(actorId, programSlug);
+    await assertScopeGroupForProgram(program.id, body.scopeGroupId);
     const normalized = await validateAssetBeforePersist(body.type, body.identifier);
 
     const wildcardSupport =
@@ -156,6 +174,12 @@ export class AssetService {
             : (body.ownershipMeta as Prisma.InputJsonValue | undefined),
       },
     });
+
+    await prisma.$executeRaw`
+      UPDATE "Asset"
+      SET "scopeGroupId" = ${body.scopeGroupId}
+      WHERE "id" = ${asset.id}
+    `;
 
     await prisma.auditLog.create({
       data: {
@@ -221,7 +245,6 @@ export class AssetService {
     if (query.tag?.trim()) {
       where.tags = { has: query.tag.trim() };
     }
-
     let cursorFilter: Prisma.AssetWhereInput | undefined;
     if (query.cursor) {
       const c = decodeCursor(query.cursor);
@@ -239,11 +262,27 @@ export class AssetService {
       cursorFilter !== undefined ? { AND: [where, cursorFilter] } : where;
 
     const take = query.limit + 1;
-    const rows = await prisma.asset.findMany({
+    let rows = await prisma.asset.findMany({
       where: finalWhere,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take,
     });
+
+    if (query.scopeGroupId) {
+      const ids = rows.map((r) => r.id);
+      if (ids.length > 0) {
+        const scopedIds = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT "id"
+          FROM "Asset"
+          WHERE "id" IN (${Prisma.join(ids)})
+            AND "scopeGroupId" = ${query.scopeGroupId}
+        `;
+        const allowed = new Set(scopedIds.map((r) => r.id));
+        rows = rows.filter((row) => allowed.has(row.id));
+      } else {
+        rows = [];
+      }
+    }
 
     const page = rows.slice(0, query.limit);
     const hasMore = rows.length > query.limit;
@@ -334,6 +373,9 @@ export class AssetService {
           ? Prisma.JsonNull
           : (body.ownershipMeta as Prisma.InputJsonValue);
     }
+    if (body.scopeGroupId !== undefined) {
+      await assertScopeGroupForProgram(program.id, body.scopeGroupId);
+    }
     if (body.identifier !== undefined || body.type !== undefined) {
       data.identifier = identifier;
       data.type = type;
@@ -351,6 +393,14 @@ export class AssetService {
         where: { id: assetId },
         data,
       });
+
+      if (body.scopeGroupId !== undefined) {
+        await tx.$executeRaw`
+          UPDATE "Asset"
+          SET "scopeGroupId" = ${body.scopeGroupId}
+          WHERE "id" = ${assetId}
+        `;
+      }
 
       const afterSnap = snapshotForHistory(a);
       const diff = computeDiff(beforeSnap, afterSnap);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiPaths } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 
+type OrgVerification = {
+  legalName: string;
+  registrationNumber?: string | null;
+  country: string;
+  address: string;
+  primaryUseCase: string;
+  estimatedPrograms: number;
+  contactName: string;
+  contactEmail: string;
+  contactPhone?: string | null;
+};
+
 type OrgDetail = {
   id: string;
   name: string;
@@ -24,6 +36,7 @@ type OrgDetail = {
   description?: string | null;
   billingEmail?: string | null;
   plan?: string;
+  orgVerification?: OrgVerification | null;
 };
 
 const OrgSettings = () => {
@@ -36,6 +49,18 @@ const OrgSettings = () => {
   const [website, setWebsite] = useState("");
   const [description, setDescription] = useState("");
   const [billingEmail, setBillingEmail] = useState("");
+  
+  // Verification details
+  const [legalName, setLegalName] = useState("");
+  const [registrationNumber, setRegistrationNumber] = useState("");
+  const [country, setCountry] = useState("");
+  const [address, setAddress] = useState("");
+  const [primaryUseCase, setPrimaryUseCase] = useState("");
+  const [estimatedPrograms, setEstimatedPrograms] = useState<number | "">("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
@@ -51,6 +76,18 @@ const OrgSettings = () => {
     setWebsite(org.website ?? "");
     setDescription(org.description ?? "");
     setBillingEmail(org.billingEmail ?? "");
+
+    if (org.orgVerification) {
+      setLegalName(org.orgVerification.legalName ?? "");
+      setRegistrationNumber(org.orgVerification.registrationNumber ?? "");
+      setCountry(org.orgVerification.country ?? "");
+      setAddress(org.orgVerification.address ?? "");
+      setPrimaryUseCase(org.orgVerification.primaryUseCase ?? "");
+      setEstimatedPrograms(org.orgVerification.estimatedPrograms ?? "");
+      setContactName(org.orgVerification.contactName ?? "");
+      setContactEmail(org.orgVerification.contactEmail ?? "");
+      setContactPhone(org.orgVerification.contactPhone ?? "");
+    }
   }, [org]);
 
   const saveMutation = useMutation({
@@ -60,6 +97,15 @@ const OrgSettings = () => {
         website: website || null,
         description: description || null,
         billingEmail: billingEmail || null,
+        legalName: legalName || undefined,
+        registrationNumber: registrationNumber || null,
+        country: country || undefined,
+        address: address || undefined,
+        primaryUseCase: primaryUseCase || undefined,
+        estimatedPrograms: estimatedPrograms !== "" ? Number(estimatedPrograms) : undefined,
+        contactName: contactName || undefined,
+        contactEmail: contactEmail || undefined,
+        contactPhone: contactPhone || null,
       }),
     onSuccess: () => {
       toast.success("Settings saved");
@@ -72,7 +118,7 @@ const OrgSettings = () => {
     onSuccess: () => {
       toast.success("Organization deleted");
       setDeleteOpen(false);
-      window.location.assign("/dashboard");
+      window.location.assign("/admin/organizations");
     },
   });
 
@@ -118,9 +164,77 @@ const OrgSettings = () => {
               placeholder="billing@company.com"
             />
           </div>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "Saving…" : "Save Changes"}
-          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Verification Details</CardTitle>
+          <CardDescription>
+            These details are used for billing, payout, and KYC verification. Keep them up to date.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Legal Name</Label>
+              <Input value={legalName} onChange={(e) => setLegalName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Registration Number</Label>
+              <Input value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Country</Label>
+              <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g. US" />
+            </div>
+            <div className="space-y-2">
+              <Label>Estimated Programs</Label>
+              <Input 
+                type="number" 
+                value={estimatedPrograms} 
+                onChange={(e) => setEstimatedPrograms(e.target.value === "" ? "" : Number(e.target.value))} 
+                min={1}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Address</Label>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Primary Use Case</Label>
+            <Textarea value={primaryUseCase} onChange={(e) => setPrimaryUseCase(e.target.value)} rows={2} />
+          </div>
+
+          <div className="pt-4 border-t border-border mt-4">
+            <h3 className="text-sm font-medium mb-4">Contact Information</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Contact Name</Label>
+                <Input value={contactName} onChange={(e) => setContactName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Contact Phone</Label>
+                <Input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2 mt-4">
+              <Label>Contact Email</Label>
+              <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="pt-4 flex justify-end">
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -137,7 +137,7 @@ export class UserService {
     const profile = await prisma.payoutProfile.findUnique({
       where: { userId },
       include: {
-        profile: {
+        user: {
           select: {
             displayName: true,
             email: true,
@@ -444,6 +444,12 @@ export class UserService {
     return user;
   }
 
+  static assertSuperAdmin(role: string) {
+    if (role !== PlatformRole.SUPER_ADMIN) {
+      throw new ForbiddenError('Super admin privileges required');
+    }
+  }
+
   static async adminBan(
     actorId: string,
     actorRole: string,
@@ -460,14 +466,12 @@ export class UserService {
     const updated = await prisma.user.update({
       where: { id: targetId },
       data: {
-        bannedAt: body.ban ? new Date() : null,
-        bannedReason: body.ban ? body.reason : null,
+        bannedAt: new Date(),
+        bannedReason: body.reason,
       },
     });
 
-    if (body.ban) {
-      await notifyUserBanned(target.email, body.reason);
-    }
+    await notifyUserBanned(target.email, body.reason);
 
     await prisma.auditLog.create({
       data: {
@@ -475,7 +479,7 @@ export class UserService {
         action: 'USER_BANNED',
         entityType: 'User',
         entityId: targetId,
-        after: { banned: body.ban, reason: body.reason },
+        after: { banned: true, reason: body.reason },
       },
     });
 
@@ -560,68 +564,5 @@ export class UserService {
     };
   }
 
-  static async getAnalytics(userId: string) {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const [submissions, accepted, totalReports, rank, avgReward, trend] = await Promise.all([
-      prisma.report.count({
-        where: {
-          submitterId: userId,
-          createdAt: { gte: thirtyDaysAgo },
-        },
-      }),
-      prisma.report.count({
-        where: {
-          submitterId: userId,
-          status: { in: ACCEPTED_LIKE },
-          createdAt: { gte: thirtyDaysAgo },
-        },
-      }),
-      prisma.report.count({
-        where: {
-          submitterId: userId,
-          createdAt: { gte: thirtyDaysAgo },
-        },
-      }),
-      prisma.$queryRaw<{ rank: BigInt }[]>`
-        SELECT 
-          RANK() OVER (ORDER BY COUNT(*) DESC)
-        FROM "Report" 
-        WHERE "submitterId" = ${userId}
-        AND "createdAt" >= ${thirtyDaysAgo.toISOString()}
-        LIMIT 1
-      `,
-      prisma.report.aggregate({
-        where: {
-          submitterId: userId,
-          status: { in: ACCEPTED_LIKE },
-          createdAt: { gte: thirtyDaysAgo },
-        },
-        _avg: {
-          reward: true,
-        },
-      }),
-      prisma.$queryRaw<{ date: string; count: number }[]>`
-        SELECT 
-          DATE_TRUNC('day', "createdAt")::text as date,
-          COUNT(*)::integer as count
-        FROM "Report" 
-        WHERE "submitterId" = ${userId}
-        AND "createdAt" >= ${thirtyDaysAgo.toISOString()}
-        GROUP BY DATE_TRUNC('day', "createdAt")
-        ORDER BY date DESC
-        LIMIT 30
-      `,
-    ]);
-
-    return {
-      submissions: submissions,
-      accepted: accepted,
-      totalReports,
-      rank: rank.length > 0 ? Number(rank[0].rank) : null,
-      avgReward: avgReward._avg.reward || 0,
-      trend: trend.map(t => ({ date: t.date, count: t.count })),
-    };
-  }
 }

@@ -15,7 +15,7 @@ interface OrgInfo {
 
 const OnboardingPending = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const [org, setOrg] = useState<OrgInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -28,8 +28,13 @@ const OnboardingPending = () => {
 
       try {
         const orgSlug = user.orgMemberships[0].org.slug;
-        const orgData = await api.get<{ data: OrgInfo }>(`/organizations/${orgSlug}`);
-        setOrg(orgData.data);
+        const orgData = await api.get<OrgInfo>(`/organizations/${orgSlug}`);
+        setOrg(orgData);
+        if (orgData.verificationStatus === 'APPROVED') {
+          setUser({ ...user, onboardingStep: 'COMPLETE' });
+          navigate(`/org/${orgSlug}`, { replace: true });
+          return;
+        }
       } catch (err) {
         toast.error('Failed to load organization');
       } finally {
@@ -54,7 +59,7 @@ const OnboardingPending = () => {
     return null;
   }
 
-  const status = org.verificationStatus as 'PENDING' | 'SUBMITTED' | 'REJECTED';
+  const status = org.verificationStatus as 'PENDING' | 'SUBMITTED' | 'REJECTED' | 'APPROVED';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -117,6 +122,23 @@ const OnboardingPending = () => {
               </div>
               <Button asChild className="w-full">
                 <Link to="/onboarding/verify">Resubmit Verification</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {status === 'APPROVED' && (
+          <Card className="border-green-500/50 bg-green-500/5">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <CardTitle className="text-green-700">Organization Approved</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-green-700/80">
+                Your organization is approved. Redirecting you to your organization dashboard...
+              </p>
+              <Button onClick={() => navigate(`/org/${org.slug}`, { replace: true })} className="w-full">
+                Go to organization dashboard
               </Button>
             </CardContent>
           </Card>

@@ -33,13 +33,14 @@ describe('verifyEmail onboarding', () => {
     prismaMock.$transaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
   });
 
-  it('sets onboardingStep to CHOOSE_PATH and returns verified + nextStep', async () => {
+  it('does not override onboardingStep and returns the current nextStep', async () => {
     prismaMock.session.findUnique.mockResolvedValue({
       id: 'sess1',
       userId: 'user1',
       expiresAt: new Date(Date.now() + 3600_000),
       deviceInfo: { type: 'email_verification' },
     });
+    prismaMock.user.update.mockResolvedValue({ onboardingStep: 'COMPLETE' });
 
     const result = await verifyEmail('plain-token');
 
@@ -47,10 +48,10 @@ describe('verifyEmail onboarding', () => {
       where: { id: 'user1' },
       data: {
         emailVerifiedAt: expect.any(Date),
-        onboardingStep: 'CHOOSE_PATH',
       },
+      select: { onboardingStep: true },
     });
     expect(prismaMock.session.delete).toHaveBeenCalledWith({ where: { id: 'sess1' } });
-    expect(result).toEqual({ verified: true, nextStep: 'CHOOSE_PATH' });
+    expect(result).toEqual({ verified: true, nextStep: 'COMPLETE' });
   });
 });

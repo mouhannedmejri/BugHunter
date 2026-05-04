@@ -2,7 +2,7 @@ import { AssetType } from './enums.js';
 
 /** Reverse-DNS bundle id: com.example.app */
 const BUNDLE_ID_RE =
-  /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
+  /^[a-zA-Z0-9](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?)+$/;
 
 /** Domain / subdomain: optional `*.` then hostname labels */
 const DOMAIN_OR_SUBDOMAIN_RE =
@@ -61,7 +61,11 @@ export function validateAssetIdentifierFormat(
       };
     case AssetType.MOBILE_APP: {
       if (!BUNDLE_ID_RE.test(id)) {
-        return { ok: false, message: 'Invalid bundle identifier format' };
+        return {
+          ok: false,
+          message:
+            'Invalid bundle identifier format (expected reverse-DNS, e.g. com.example.app)',
+        };
       }
       return { ok: true, normalized };
     }

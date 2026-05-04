@@ -18,6 +18,8 @@ import { mockPrograms, type Severity } from "@/lib/mock-data";
 import { ArrowLeft, ArrowRight, Save, Send, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { api, apiPaths } from "@/lib/api";
 
 const steps = ["Basics", "Details", "Evidence", "Review"];
 
@@ -38,7 +40,14 @@ export default function SubmitReport() {
 
   const { draft, currentStep, hasSavedDraft, setField, setStep, addAttachment, removeAttachment, updateAttachmentProgress, clearDraft, initDraft } = useReportDraftStore();
 
-  const program = mockPrograms.find((p) => p.slug === slug);
+  const { data: programRes } = useQuery({
+    queryKey: ['program', slug],
+    queryFn: () => api.get<any>(apiPaths.programs.bySlug(slug!)),
+    enabled: !!slug
+  });
+
+  const program = programRes?.program || mockPrograms.find((p) => p.slug === slug);
+  const assets = programRes?.assets || program?.assets || [];
 
   useEffect(() => {
     if (!slug) return;
@@ -82,15 +91,40 @@ export default function SubmitReport() {
   );
 
   const canNext = () => {
-    if (currentStep === 0) return !!draft.title && !!draft.category && !!draft.severity && !!draft.affectedAssetId;
-    if (currentStep === 1) return !!draft.reproductionSteps && !!draft.impact;
+    if (currentStep === 0) return !!draft.title && draft.title.length >= 5 && !!draft.category && !!draft.severity && !!draft.affectedAssetId;
+    if (currentStep === 1) return !!draft.reproductionSteps && draft.reproductionSteps.length >= 20 && !!draft.impact && draft.impact.length >= 10;
     return true;
   };
 
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      return api.post<any>(apiPaths.reports.create, {
+        programId: program!.id,
+        assetId: draft.affectedAssetId,
+        title: draft.title,
+        vulnCategory: draft.category,
+        severityEstimate: draft.severity,
+        reproSteps: draft.reproductionSteps,
+        impactExplanation: draft.impact,
+        environmentInfo: {
+          os: draft.environmentOs,
+          browser: draft.environmentBrowser
+        },
+        suggestedFix: draft.remediation
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Report submitted!", description: "Your vulnerability report has been submitted for review." });
+      clearDraft();
+      navigate(`/programs/${slug}`);
+    },
+    onError: (err: any) => {
+      toast({ title: "Submission failed", description: err.message || "Failed to submit report.", variant: "destructive" });
+    }
+  });
+
   const handleSubmit = () => {
-    toast({ title: "Report submitted!", description: "Your vulnerability report has been submitted for review." });
-    clearDraft();
-    navigate(`/programs/${slug}`);
+    submitMutation.mutate();
   };
 
   if (!program) {
@@ -193,7 +227,7 @@ export default function SubmitReport() {
                 <Select value={draft.affectedAssetId} onValueChange={(v) => setField("affectedAssetId", v)}>
                   <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
                   <SelectContent>
-                    {program.assets.filter((a) => a.inScope).map((a) => (
+                    {assets.filter((a: any) => a.inScope).map((a: any) => (
                       <SelectItem key={a.id} value={a.id}>
                         <span className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground font-mono">[{a.type}]</span> {a.identifier}
@@ -279,7 +313,7 @@ export default function SubmitReport() {
                 <div>
                   <span className="text-muted-foreground">Asset</span>
                   <p className="font-medium text-foreground font-mono text-xs">
-                    {program.assets.find((a) => a.id === draft.affectedAssetId)?.identifier}
+                    {assets.find((a: any) => a.id === draft.affectedAssetId)?.identifier}
                   </p>
                 </div>
               </div>
@@ -360,19 +394,21 @@ export default function SubmitReport() {
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-warning" /> Confirm Submission
             </DialogTitle>
-            <DialogDescription className="space-y-2">
-              <p>By submitting this report, you confirm that:</p>
-              <ul className="list-disc pl-5 text-sm space-y-1">
-                <li>You discovered this vulnerability through authorized testing</li>
-                <li>You have not disclosed this vulnerability to any third party</li>
-                <li>You agree to the program's responsible disclosure policy</li>
-                <li>All information provided is accurate to the best of your knowledge</li>
-              </ul>
-            </DialogDescription>
           </DialogHeader>
+          <div className="text-sm text-muted-foreground space-y-2">
+            <p>By submitting this report, you confirm that:</p>
+            <ul className="list-disc pl-5 text-sm space-y-1">
+              <li>You discovered this vulnerability through authorized testing</li>
+              <li>You have not disclosed this vulnerability to any third party</li>
+              <li>You agree to the program's responsible disclosure policy</li>
+              <li>All information provided is accurate to the best of your knowledge</li>
+            </ul>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>Confirm & Submit</Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitMutation.isPending}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+              {submitMutation.isPending ? "Submitting..." : "Confirm & Submit"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

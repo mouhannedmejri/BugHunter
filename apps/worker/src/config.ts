@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { config as loadDotenv } from 'dotenv';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -21,7 +25,28 @@ const envSchema = z.object({
 
 export type WorkerEnv = z.infer<typeof envSchema>;
 
+function preloadEnvFiles(): void {
+  const currentFilePath = fileURLToPath(import.meta.url);
+  const packageRoot = resolve(dirname(currentFilePath), '..');
+  const candidates = [
+    resolve(process.cwd(), '.env'),
+    resolve(packageRoot, '.env'),
+    resolve(packageRoot, '../../.env'),
+  ];
+
+  const loaded = new Set<string>();
+  for (const filePath of candidates) {
+    if (loaded.has(filePath) || !existsSync(filePath)) {
+      continue;
+    }
+
+    loadDotenv({ path: filePath, override: false });
+    loaded.add(filePath);
+  }
+}
+
 function loadEnv(): WorkerEnv {
+  preloadEnvFiles();
   const parsed = envSchema.safeParse(process.env);
 
   if (!parsed.success) {

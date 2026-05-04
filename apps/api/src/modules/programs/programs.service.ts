@@ -22,9 +22,11 @@ import {
 } from './programs.notifications.js';
 import { mergeSlaConfig, seedSlaRecordsForProgram } from './programs.sla.js';
 import type {
+  CreateScopeGroupBody,
   CreateProgramBody,
   ProgramInviteBody,
   ProgramStatusBody,
+  UpdateScopeGroupBody,
   UpdateProgramBody,
 } from './programs.schemas.js';
 
@@ -81,6 +83,78 @@ function needsInviteGate(program: Program): boolean {
   return program.type === ProgramType.PRIVATE || program.requiresInvite;
 }
 
+type ScopeGroupRow = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  triageOptions: unknown;
+  rewardPolicy: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const defaultTriageOptions = {
+  duplicatePolicy: 'first',
+  autoAcceptLow: false,
+  requiresManualReview: true,
+};
+
+async function listScopeGroups(programId: string): Promise<ScopeGroupRow[]> {
+  return prisma.$queryRaw<ScopeGroupRow[]>`
+    SELECT
+      "id",
+      "name",
+      "isDefault",
+      "triageOptions",
+      "rewardPolicy",
+      "createdAt",
+      "updatedAt"
+    FROM "ProgramScopeGroup"
+    WHERE "programId" = ${programId}
+    ORDER BY "isDefault" DESC, "createdAt" ASC
+  `;
+}
+
+async function ensureDefaultScopeGroup(
+  programId: string,
+  rewardPolicy: unknown,
+  policy: unknown,
+) {
+  const existing = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "ProgramScopeGroup"
+    WHERE "programId" = ${programId}
+      AND "isDefault" = true
+    LIMIT 1
+  `;
+  if (existing.length > 0) return existing[0]!.id;
+
+  const created = await prisma.$queryRaw<Array<{ id: string }>>`
+    INSERT INTO "ProgramScopeGroup" (
+      "id",
+      "programId",
+      "name",
+      "isDefault",
+      "triageOptions",
+      "rewardPolicy",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${`sg_${randomBytes(8).toString('hex')}`},
+      ${programId},
+      'Default In Scope',
+      true,
+      ${JSON.stringify((policy as Record<string, unknown> | null) ?? defaultTriageOptions)}::jsonb,
+      ${JSON.stringify(rewardPolicy ?? {})}::jsonb,
+      NOW(),
+      NOW()
+    )
+    RETURNING "id"
+  `;
+  return created[0]!.id;
+}
+
 export class ProgramService {
   static async isOrgStaff(program: Program, userId: string): Promise<boolean> {
     const m = await prisma.organizationMember.findUnique({
@@ -103,10 +177,10 @@ export class ProgramService {
     return Boolean(inv);
   }
 
-  /**
-   * Researcher may participate (e.g. submit) when program is ACTIVE, user is in good standing,
-   * and invite/join rules are satisfied.
-   */
+/**
+    * Researcher may participate (e.g. submit) when program is ACTIVE, user is in good standing,
+    * and invite/join rules are satisfied.
+    */
   static async isEligible(userId: string, programId: string): Promise<boolean> {
     const user = await prisma.user.findFirst({
       where: { id: userId, deletedAt: null, bannedAt: null },
@@ -121,11 +195,7 @@ export class ProgramService {
     if (await ProgramService.isOrgStaff(program, userId)) return true;
 
     if (program.type === ProgramType.PUBLIC && !program.requiresInvite) {
-      return ProgramService.hasUsedProgramInvite(programId, userId);
-    }
-
-    if (needsInviteGate(program)) {
-      return ProgramService.hasUsedProgramInvite(programId, userId);
+      return true;
     }
 
     return ProgramService.hasUsedProgramInvite(programId, userId);
@@ -135,6 +205,10 @@ export class ProgramService {
     program: Program,
     viewerUserId: string | null,
   ): Promise<boolean> {
+    if (viewerUserId && (await ProgramService.isOrgStaff(program, viewerUserId))) {
+      return true;
+    }
+
     if (!needsInviteGate(program)) {
       return (
         program.type === ProgramType.PUBLIC &&
@@ -142,7 +216,6 @@ export class ProgramService {
       );
     }
     if (!viewerUserId) return false;
-    if (await ProgramService.isOrgStaff(program, viewerUserId)) return true;
     return ProgramService.hasUsedProgramInvite(program.id, viewerUserId);
   }
 
@@ -205,6 +278,8 @@ export class ProgramService {
       return p;
     });
 
+    await ensureDefaultScopeGroup(program.id, body.rewardPolicy, body.policy);
+
     return program;
   }
 
@@ -252,6 +327,7 @@ export class ProgramService {
       program,
       viewerUserId,
     );
+    const scopeGroups = await listScopeGroups(program.id);
 
     const tagList = program.tags.map((t) => t.tag);
 
@@ -274,19 +350,35 @@ export class ProgramService {
           endAt: program.endAt,
           createdAt: program.createdAt,
         },
+        scopeGroups,
         assets: [] as Asset[],
         access: { canViewScope: false },
       };
     }
 
-    const assets = await prisma.asset.findMany({
-          where: {
-            programId: program.id,
-            inScope: true,
-            deletedAt: null,
-          },
-          orderBy: { createdAt: 'asc' },
-        });
+    const assets = await prisma.$queryRaw<Array<Asset & { scopeGroupId: string | null }>>`
+      SELECT
+        "id",
+        "programId",
+        "type",
+        "identifier",
+        "description",
+        "inScope",
+        "verified",
+        "verifiedAt",
+        "wildcardSupport",
+        "tags",
+        "ownershipMeta",
+        "notes",
+        "createdAt",
+        "updatedAt",
+        "deletedAt",
+        "scopeGroupId"
+      FROM "Asset"
+      WHERE "programId" = ${program.id}
+        AND "deletedAt" IS NULL
+      ORDER BY "createdAt" ASC
+    `;
 
     return {
       program: {
@@ -313,6 +405,7 @@ export class ProgramService {
         org: program.org,
         tags: tagList,
       },
+      scopeGroups,
       assets,
       access: { canViewScope: true },
     };
@@ -497,6 +590,140 @@ export class ProgramService {
       payoutsApprovedCents: payoutsCents,
       totalPaidUsdStored: program.totalPaidUsd,
     };
+  }
+
+  static async listScopeGroups(programSlug: string, actorUserId: string) {
+    const program = await ProgramService.getProgramBySlug(programSlug);
+    const { member } = await OrganizationService.assertOrgMembership(
+      actorUserId,
+      program.org.slug,
+      PM_OR_OA,
+    );
+    assertPmOrOa(member.role);
+    return listScopeGroups(program.id);
+  }
+
+  static async createScopeGroup(
+    programSlug: string,
+    actorUserId: string,
+    body: CreateScopeGroupBody,
+  ) {
+    const program = await ProgramService.getProgramBySlug(programSlug);
+    const { member } = await OrganizationService.assertOrgMembership(
+      actorUserId,
+      program.org.slug,
+      PM_OR_OA,
+    );
+    assertPmOrOa(member.role);
+
+    const created = await prisma.$queryRaw<ScopeGroupRow[]>`
+      INSERT INTO "ProgramScopeGroup" (
+        "id",
+        "programId",
+        "name",
+        "isDefault",
+        "triageOptions",
+        "rewardPolicy",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        ${`sg_${randomBytes(8).toString('hex')}`},
+        ${program.id},
+        ${body.name},
+        false,
+        ${JSON.stringify(body.triageOptions)}::jsonb,
+        ${JSON.stringify(body.rewardPolicy)}::jsonb,
+        NOW(),
+        NOW()
+      )
+      RETURNING "id", "name", "isDefault", "triageOptions", "rewardPolicy", "createdAt", "updatedAt"
+    `;
+    return created[0]!;
+  }
+
+  static async updateScopeGroup(
+    programSlug: string,
+    scopeGroupId: string,
+    actorUserId: string,
+    body: UpdateScopeGroupBody,
+  ) {
+    const program = await ProgramService.getProgramBySlug(programSlug);
+    const { member } = await OrganizationService.assertOrgMembership(
+      actorUserId,
+      program.org.slug,
+      PM_OR_OA,
+    );
+    assertPmOrOa(member.role);
+
+    const existing = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "ProgramScopeGroup"
+      WHERE "id" = ${scopeGroupId}
+        AND "programId" = ${program.id}
+      LIMIT 1
+    `;
+    if (existing.length === 0) throw new NotFoundError('Scope group');
+
+    const updates: string[] = [];
+    if (body.name !== undefined) updates.push(`"name" = '${body.name.replace(/'/g, "''")}'`);
+    if (body.triageOptions !== undefined) {
+      updates.push(`"triageOptions" = '${JSON.stringify(body.triageOptions).replace(/'/g, "''")}'::jsonb`);
+    }
+    if (body.rewardPolicy !== undefined) {
+      updates.push(`"rewardPolicy" = '${JSON.stringify(body.rewardPolicy).replace(/'/g, "''")}'::jsonb`);
+    }
+    updates.push(`"updatedAt" = NOW()`);
+
+    const sql = `
+      UPDATE "ProgramScopeGroup"
+      SET ${updates.join(', ')}
+      WHERE "id" = $1 AND "programId" = $2
+      RETURNING "id", "name", "isDefault", "triageOptions", "rewardPolicy", "createdAt", "updatedAt"
+    `;
+    const rows = await prisma.$queryRawUnsafe<ScopeGroupRow[]>(sql, scopeGroupId, program.id);
+    return rows[0]!;
+  }
+
+  static async deleteScopeGroup(
+    programSlug: string,
+    scopeGroupId: string,
+    actorUserId: string,
+  ) {
+    const program = await ProgramService.getProgramBySlug(programSlug);
+    const { member } = await OrganizationService.assertOrgMembership(
+      actorUserId,
+      program.org.slug,
+      PM_OR_OA,
+    );
+    assertPmOrOa(member.role);
+
+    const row = await prisma.$queryRaw<Array<{ id: string; isDefault: boolean }>>`
+      SELECT "id", "isDefault"
+      FROM "ProgramScopeGroup"
+      WHERE "id" = ${scopeGroupId}
+        AND "programId" = ${program.id}
+      LIMIT 1
+    `;
+    if (row.length === 0) throw new NotFoundError('Scope group');
+    if (row[0]!.isDefault) {
+      throw new BadRequestError('Default scope group cannot be deleted');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        UPDATE "Asset"
+        SET "scopeGroupId" = NULL
+        WHERE "scopeGroupId" = ${scopeGroupId}
+      `;
+      await tx.$executeRaw`
+        DELETE FROM "ProgramScopeGroup"
+        WHERE "id" = ${scopeGroupId}
+          AND "programId" = ${program.id}
+      `;
+    });
+
+    return { message: 'Scope group deleted' };
   }
 
   static async inviteResearcher(
@@ -684,13 +911,39 @@ export class ProgramService {
       orgSlug,
     );
 
-    return prisma.program.findMany({
+    const programs = await prisma.program.findMany({
       where: { orgId: org.id, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: {
         tags: { select: { tag: true } },
+        assets: {
+          where: { deletedAt: null },
+          select: {
+            type: true,
+            identifier: true,
+            inScope: true,
+          },
+        },
         _count: { select: { reports: true } },
       },
+    });
+
+    return programs.map((program) => {
+      const domainAssets = program.assets.filter(
+        (asset) => asset.type === 'DOMAIN' || asset.type === 'SUBDOMAIN',
+      );
+      const inScopeDomains = domainAssets
+        .filter((asset) => asset.inScope)
+        .map((asset) => asset.identifier);
+      const outOfScopeDomains = domainAssets
+        .filter((asset) => !asset.inScope)
+        .map((asset) => asset.identifier);
+
+      return {
+        ...program,
+        inScopeDomains,
+        outOfScopeDomains,
+      };
     });
   }
 }

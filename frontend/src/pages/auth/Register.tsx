@@ -99,7 +99,7 @@ const Register = () => {
   const subtitle =
     accountType === "COMPANY"
       ? "Organizations verify by email, then complete onboarding and BugHuntr admin approval."
-      : "Verify your email, then sign in to hunt programs and track rewards.";
+      : "Verify your email, then sign in directly to hunt programs and track rewards (no onboarding).";
 
   return (
     <AuthLayout title="Create your account" subtitle={subtitle}>

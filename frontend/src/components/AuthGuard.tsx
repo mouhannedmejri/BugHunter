@@ -76,6 +76,9 @@ export const AuthGuard = ({ allowedTarget }: AuthGuardProps) => {
     if (isSuperAdmin) {
       return <Navigate to="/admin" replace />;
     }
+    if (hasOrganizations) {
+      return <Navigate to={`/org/${user.orgMemberships![0].org.slug}`} replace />;
+    }
     return <Outlet />;
   }
 

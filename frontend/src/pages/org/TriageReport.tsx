@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -21,31 +21,64 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiPaths } from "@/lib/api";
 import { TimeAgo } from "@/components/TimeAgo";
+import { StatusTimeline } from "@/components/StatusTimeline";
+import { AttachmentGallery } from "@/components/AttachmentGallery";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { DetailedReport } from "@/lib/report-mock-data";
 
 type OrgReportDetail = {
   id: string;
   title: string;
-  vulnCategory: string;
-  severityEstimate: Severity;
-  severityValidated: Severity | null;
-  cvssScore: number | null;
+  programTitle: string;
+  programSlug: string;
+  severity: Severity;
   status: ReportStatus;
-  reproSteps: string;
-  impactExplanation: string;
+  category: string;
+  affectedAsset: string;
+  affectedAssetType: string;
+  reproductionSteps: string;
+  impact: string;
+  remediation: string | undefined;
+  environment: {
+    os: string;
+    browser: string;
+  };
   createdAt: string;
-  program: { id: string; slug: string; title: string };
-  asset: { identifier: string } | null;
-  submitter: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
-  assignee: { id: string; username: string; displayName: string | null; avatarUrl: string | null } | null;
-  slaRecords: Array<{ metricKey: string; dueAt: string; breached: boolean; completedAt: string | null }>;
-};
-
-type CommentRow = {
-  id: string;
-  body: string;
-  isInternal: boolean;
-  createdAt: string;
-  author: { username: string; displayName: string | null };
+  updatedAt: string;
+  reward: number | undefined;
+  submitter: {
+    username: string;
+    displayName: string | null;
+    avatarUrl: string;
+  };
+  assignedReviewer: {
+    username: string;
+    displayName: string | null;
+  } | undefined;
+  attachments: Array<{
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+    uploadedAt: string;
+    scanStatus: string;
+  }>;
+  comments: Array<{
+    id: string;
+    authorName: string;
+    authorRole: string;
+    body: string;
+    createdAt: string;
+    isInternal: boolean;
+  }>;
+  statusHistory: Array<{
+    status: ReportStatus;
+    changedAt: string;
+    changedBy: string;
+    note?: string
+  }>;
+  isOwnReport: boolean;
 };
 
 function farFutureIso() {
@@ -61,6 +94,7 @@ const TriageReport = () => {
   const queryClient = useQueryClient();
   const [rewardOpen, setRewardOpen] = useState(false);
   const [internalNote, setInternalNote] = useState("");
+  const [publicComment, setPublicComment] = useState("");
   const [cvss, setCvss] = useState("");
   const [escalateReason, setEscalateReason] = useState("");
 
@@ -68,13 +102,6 @@ const TriageReport = () => {
     queryKey: ["orgReport", orgSlug, reportId],
     queryFn: () => api.get<OrgReportDetail>(apiPaths.organizations.orgReport(orgSlug!, reportId!)),
     enabled: !!orgSlug && !!reportId,
-  });
-
-  const { data: commentsPage } = useQuery({
-    queryKey: ["reportComments", reportId],
-    queryFn: () =>
-      api.get<{ comments: CommentRow[] }>(`${apiPaths.reports.comments(reportId!)}?limit=80`),
-    enabled: !!reportId,
   });
 
   const { data: members } = useQuery({
@@ -145,7 +172,7 @@ const TriageReport = () => {
     mutationFn: ({ body, isInternal }: { body: string; isInternal: boolean }) =>
       api.post(apiPaths.reports.comments(reportId!), { body, isInternal }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["reportComments", reportId] });
+      void queryClient.invalidateQueries({ queryKey: ["orgReport", orgSlug, reportId] });
     },
   });
 
@@ -219,66 +246,104 @@ const TriageReport = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-5">
-              <h3 className="font-semibold mb-3">Impact</h3>
-              <MarkdownContent body={report.impactExplanation || "_No impact description._"} />
-            </CardContent>
-          </Card>
+           <Card>
+             <CardContent className="p-5">
+               <h3 className="font-semibold mb-3">Impact</h3>
+               <MarkdownContent body={report.impactExplanation || "_No impact description._"} />
+             </CardContent>
+           </Card>
 
-          <Tabs defaultValue="public">
+           {/* Status Timeline */}
+           <Card>
+             <CardHeader className="pb-3">
+               <CardTitle className="text-sm">Status History</CardTitle>
+             </CardHeader>
+             <CardContent>
+               <StatusTimeline history={report.statusHistory} />
+             </CardContent>
+           </Card>
+
+           {/* Attachments */}
+           <Card>
+             <CardContent className="pt-6">
+               <AttachmentGallery attachments={report.attachments} />
+             </CardContent>
+           </Card>
+
+           <Tabs defaultValue="public">
             <TabsList>
               <TabsTrigger value="public">Public Comments</TabsTrigger>
               <TabsTrigger value="internal">Internal Notes</TabsTrigger>
             </TabsList>
-            <TabsContent value="public" className="mt-4">
-              <Card>
-                <CardContent className="p-5">
-                  <div className="space-y-4">
-                    {(commentsPage?.comments ?? [])
-                      .filter((c) => !c.isInternal)
-                      .map((c) => (
-                        <div key={c.id} className="flex gap-3">
-                          <Avatar className="h-7 w-7">
-                            <AvatarFallback className="text-xs bg-muted">
-                              {(c.author.displayName ?? c.author.username)[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm">
-                              <span className="font-medium">{c.author.displayName ?? c.author.username}</span>{" "}
-                              <span className="text-muted-foreground text-xs">
-                                <TimeAgo timestamp={c.createdAt} />
-                              </span>
-                            </p>
-                            <div className="mt-1">
-                              <MarkdownContent body={c.body} />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    {(commentsPage?.comments ?? []).filter((c) => !c.isInternal).length === 0 && (
-                      <p className="text-sm text-muted-foreground">No public comments yet.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+             <TabsContent value="public" className="mt-4">
+               <Card>
+                 <CardContent className="p-5">
+                   <div className="space-y-4">
+                     {(report?.comments ?? [])
+                       .filter((c) => !c.isInternal)
+                       .map((c) => {
+                         const authorName = c.author?.displayName ?? c.author?.username ?? c.authorName ?? "Unknown";
+                         return (
+                         <div key={c.id} className="flex gap-3">
+                           <Avatar className="h-7 w-7">
+                             <AvatarFallback className="text-xs bg-muted">
+                               {authorName[0]}
+                             </AvatarFallback>
+                           </Avatar>
+                           <div>
+                             <p className="text-sm">
+                               <span className="font-medium">{authorName}</span>{" "}
+                               <span className="text-muted-foreground text-xs">
+                                 <TimeAgo timestamp={c.createdAt} />
+                               </span>
+                             </p>
+                             <div className="mt-1">
+                               <MarkdownContent body={c.body} />
+                             </div>
+                           </div>
+                         </div>
+                         );
+                       })}
+                     {(report?.comments ?? []).filter((c) => !c.isInternal).length === 0 && (
+                       <p className="text-sm text-muted-foreground">No public comments yet.</p>
+                     )}
+                   </div>
+                 </CardContent>
+               </Card>
+               <MDEditor
+                 value={publicComment}
+                 onChange={setPublicComment}
+                 placeholder="Add a public comment..."
+                 minRows={3}
+               />
+               <Button
+                 size="sm"
+                 disabled={!publicComment.trim() || postCommentMutation.isPending}
+                 onClick={() => {
+                   postCommentMutation.mutate({ body: publicComment.trim(), isInternal: false });
+                   setPublicComment("");
+                 }}
+               >
+                 Add Comment
+               </Button>
+             </TabsContent>
             <TabsContent value="internal" className="mt-4 space-y-4">
               <Card>
                 <CardContent className="p-5 space-y-3">
-                  {(commentsPage?.comments ?? [])
+                  {(report?.comments ?? [])
                     .filter((c) => c.isInternal)
-                    .map((c) => (
+                    .map((c) => {
+                      const authorName = c.author?.displayName ?? c.author?.username ?? c.authorName ?? "Unknown";
+                      return (
                       <div key={c.id} className="flex gap-3">
                         <Avatar className="h-7 w-7">
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                            {(c.author.displayName ?? c.author.username)[0]}
+                            {authorName[0]}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="text-sm">
-                            <span className="font-medium">{c.author.displayName ?? c.author.username}</span>{" "}
+                            <span className="font-medium">{authorName}</span>{" "}
                             <span className="text-muted-foreground text-xs">
                               <TimeAgo timestamp={c.createdAt} />
                             </span>
@@ -288,8 +353,9 @@ const TriageReport = () => {
                           </div>
                         </div>
                       </div>
-                    ))}
-                  {(commentsPage?.comments ?? []).filter((c) => c.isInternal).length === 0 && (
+                      );
+                    })}
+                  {(report?.comments ?? []).filter((c) => c.isInternal).length === 0 && (
                     <p className="text-sm text-muted-foreground">No internal notes yet.</p>
                   )}
                 </CardContent>

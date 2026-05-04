@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { Building2, ArrowLeft, Send, Lock, Shield, ExternalLink } from "lucide-react";
+import { Building2, ArrowLeft, Send, Lock, Shield } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -64,8 +64,10 @@ const ProgramDetail = () => {
             )}
           </div>
         </div>
-        <Button className="gap-2 shrink-0" size="lg">
-          <Send className="h-4 w-4" /> Submit Report
+        <Button asChild className="gap-2 shrink-0" size="lg">
+          <Link to={`/programs/${program.slug}/submit`}>
+            <Send className="h-4 w-4" /> Submit Report
+          </Link>
         </Button>
       </div>
 
@@ -74,7 +76,7 @@ const ProgramDetail = () => {
         <CardContent className="p-4">
           <div className="grid grid-cols-5 gap-2 text-center">
             {severityOrder.map((sev) => {
-              const tier = program.rewardTiers[sev];
+              const tier = program.rewardTiers?.[sev] ?? { min: 0, max: 0 };
               return (
                 <div key={sev} className="space-y-1">
                   <SeverityBadge severity={sev} />
@@ -214,8 +216,10 @@ const ProgramDetail = () => {
             {programReports.length === 0 ? (
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground">You haven't submitted any reports to this program yet.</p>
-                <Button className="mt-4 gap-2">
-                  <Send className="h-4 w-4" /> Submit your first report
+                <Button asChild className="mt-4 gap-2">
+                  <Link to={`/programs/${program.slug}/submit`}>
+                    <Send className="h-4 w-4" /> Submit your first report
+                  </Link>
                 </Button>
               </CardContent>
             ) : (

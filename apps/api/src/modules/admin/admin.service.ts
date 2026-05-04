@@ -98,6 +98,121 @@ function initDbMetrics() {
 }
 
 export class AdminService {
+
+
+  static async getUserDetails(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        platformRole: true,
+        country: true,
+        bannedAt: true,
+        bannedReason: true,
+        createdAt: true,
+        lastLoginAt: true,
+        avatarUrl: true,
+        twitterHandle: true,
+        githubHandle: true,
+        bio: true,
+        website: true,
+        rewardHistory: true,
+        
+
+        orgMemberships: {
+          select: {
+            org: { select: { id: true, slug: true, name: true } },
+          },
+        },
+        reports: { select: { id: true } },    
+        rewards: { select: { id: true } },
+        sessions: { select: { id: true } },
+        reputationLogs: { select: { id: true } },
+
+      },
+    });
+    if (!user) throw new NotFoundError('User');
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+      platformRole: user.platformRole,
+      country: user.country,
+      bannedAt: user.bannedAt,
+      bannedReason: user.bannedReason,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt,
+      orgs: user.orgMemberships.map((m) => m.org),
+      reports: user.reports,
+      rewards: user.rewards,
+      sessions: user.sessions,
+      reputationLogs: user.reputationLogs,
+      
+    };
+  }
+  static async getUsersStats() {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+    const [totalUsers, rawStats] = await prisma.$transaction([
+      prisma.user.count({
+        where: {
+          deletedAt: null,
+          createdAt: { gte: thirtyDaysAgo },
+        },
+      }),
+  
+      prisma.user.findMany({
+        where: {
+          deletedAt: null,
+          createdAt: { gte: thirtyDaysAgo },
+        },
+        select: { createdAt: true },
+      }),
+    ]);
+  
+    const usersStats = rawStats.reduce<Record<string, number>>((acc, { createdAt }) => {
+      const day = createdAt.toISOString().split('T')[0];
+      if (!day) return acc;
+  
+      acc[day] = (acc[day] ?? 0) + 1;
+      return acc;
+    }, {});
+  
+    return { totalUsers, usersStats };
+  }
+  static async getReportsStats(){
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [totalReports,rawStats] = await prisma.$transaction([
+      prisma.report.count({
+        where:{
+            createdAt :{ gte : thirtyDaysAgo}
+        },
+      }),prisma.report.findMany({
+        where:{
+          createdAt:{gte:thirtyDaysAgo},
+
+        },select:{createdAt:true}
+      })
+    ])
+
+    const raportStats = rawStats.reduce<Record<string, number>>((acc, { createdAt }) => {
+      const day = createdAt.toISOString().split('T')[0];
+      if (!day) return acc;
+  
+      acc[day] = (acc[day] ?? 0) + 1;
+      return acc;
+    }, {});
+  
+    return { totalReports,raportStats };
+  
+  }
   static async auditAction(
     actorId: string,
     action: string,
@@ -701,9 +816,10 @@ export class AdminService {
   static async approveOrganizationVerification(orgId: string, actorId: string) {
     const org = await prisma.organization.findUnique({
       where: { id: orgId },
-      include: { members: { where: { role: 'ORG_ADMIN' } } },
+      include: { members: true },
     });
     if (!org) throw new NotFoundError('Organization');
+    const memberUserIds = [...new Set(org.members.map((m) => m.userId))];
 
     await prisma.$transaction([
       prisma.organization.update({
@@ -717,6 +833,13 @@ export class AdminService {
       prisma.orgVerification.update({
         where: { orgId },
         data: { updatedAt: new Date() },
+      }),
+      prisma.user.updateMany({
+        where: {
+          id: { in: memberUserIds },
+          onboardingStep: 'PENDING_ORG_APPROVAL',
+        },
+        data: { onboardingStep: 'COMPLETE' },
       }),
       prisma.auditLog.create({
         data: {

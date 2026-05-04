@@ -221,11 +221,11 @@ const ProgramWizard = () => {
                 <Button onClick={addAsset} size="icon" variant="outline"><Plus className="h-4 w-4" /></Button>
               </div>
               <div className="text-sm text-muted-foreground">Or import from CSV:</div>
-              <FileUploadZone files={[]} onFiles={() => toast.info("CSV import: mock")} onRemove={() => {}} accept=".csv,.json" maxSize={2 * 1024 * 1024} />
+              <FileUploadZone files={[]} onFiles={() => toast.info("CSV import: mock")} onRemove={() => { }} accept=".csv,.json" maxSize={2 * 1024 * 1024} />
               <ScopeAssetTable
                 assets={assets}
                 onToggle={(id) => setAssets((prev) => prev.map((a) => a.id === id ? { ...a, inScope: !a.inScope } : a))}
-                onEdit={() => {}}
+                onEdit={() => { }}
               />
             </div>
           )}
@@ -235,6 +235,7 @@ const ProgramWizard = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Launch Date</Label>
+
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("w-full justify-start text-left", !launchDate && "text-muted-foreground")}>

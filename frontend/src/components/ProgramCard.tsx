@@ -28,6 +28,13 @@ interface ProgramCardProps {
 }
 
 export const ProgramCard = ({ program }: ProgramCardProps) => {
+  const min = program.rewardRange?.min ?? 0;
+  const max = program.rewardRange?.max ?? 0;
+  const rewardLabel =
+    program.rewardRange !== undefined && program.rewardRange !== null
+      ? `${formatCompactCurrency(min)} – ${formatCompactCurrency(max)}`
+      : "—";
+
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-md hover:border-primary/20">
       <CardContent className="p-5">
@@ -37,7 +44,7 @@ export const ProgramCard = ({ program }: ProgramCardProps) => {
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-foreground truncate">{program.title}</h3>
-            <p className="text-sm text-muted-foreground">{program.orgName}</p>
+            <p className="text-sm text-muted-foreground">{program.orgName ?? "—"}</p>
           </div>
         </div>
 
@@ -59,7 +66,7 @@ export const ProgramCard = ({ program }: ProgramCardProps) => {
           <div>
             <p className="text-muted-foreground text-xs">Reward Range</p>
             <p className="font-semibold text-foreground">
-              {formatCompactCurrency(program.rewardRange.min)} – {formatCompactCurrency(program.rewardRange.max)}
+              {rewardLabel}
             </p>
           </div>
           <div className="text-right">

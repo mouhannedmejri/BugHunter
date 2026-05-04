@@ -14,10 +14,19 @@ export type CreateOrganizationBody = z.infer<typeof createOrganizationBodySchema
 
 export const updateOrganizationBodySchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  website: z.string().url().max(2048).nullable().optional(),
+  website: z.string().url().max(2048).nullable().optional().or(z.literal('')),
   description: z.string().max(10_000).nullable().optional(),
   billingEmail: z.string().email().max(255).nullable().optional(),
   logoUrl: z.string().url().max(2048).nullable().optional(),
+  legalName: z.string().min(1).max(200).optional(),
+  registrationNumber: z.string().max(100).nullable().optional(),
+  country: z.string().min(2).max(100).optional(),
+  address: z.string().min(1).max(500).optional(),
+  primaryUseCase: z.string().min(20).max(5000).optional(),
+  estimatedPrograms: z.number().int().min(1).max(100).optional(),
+  contactName: z.string().min(1).max(200).optional(),
+  contactEmail: z.string().email().max(255).optional(),
+  contactPhone: z.string().max(50).nullable().optional(),
 });
 export type UpdateOrganizationBody = z.infer<typeof updateOrganizationBodySchema>;
 

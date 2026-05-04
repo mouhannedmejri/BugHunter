@@ -140,15 +140,136 @@ export class TriageService {
       where: { id: reportId, program: { orgId } },
       include: {
         program: { select: { id: true, slug: true, title: true } },
-        asset: { select: { id: true, type: true, identifier: true } },
+        asset: { select: { type: true, identifier: true } },
         submitter: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         assignee: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
         slaRecords: { select: { metricKey: true, dueAt: true, breached: true, completedAt: true } },
         reward: { include: { payout: true } },
+        attachments: true,
+        comments: {
+          include: {
+            author: { select: { id: true, username: true, displayName: true } }
+          },
+          orderBy: { createdAt: "asc" }
+        },
+        statusHistory: { orderBy: { createdAt: "asc" } }
       },
     });
     if (!report) throw new NotFoundError('Report');
-    return report;
+
+    // Resolve usernames for statusHistory changedBy IDs
+    const changedByIds = Array.from(
+      new Set(
+        report.statusHistory
+          .map((sh) => sh.changedBy)
+          .filter((id): id is string => !!id && id !== "System")
+      )
+    );
+    const userMap: Record<string, { username: string; displayName: string | null }> = {};
+    if (changedByIds.length > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: changedByIds } },
+        select: { id: true, username: true, displayName: true }
+      });
+      for (const u of users) {
+        userMap[u.id] = { username: u.username, displayName: u.displayName };
+      }
+    }
+
+    const comments = report.comments.map((c) => {
+      const authorUsername = c.author?.username ?? 'unknown';
+      const authorDisplayName = c.author?.displayName ?? null;
+      return {
+        id: c.id,
+        author: {
+          id: c.author?.id ?? 'unknown',
+          username: authorUsername,
+          displayName: authorDisplayName,
+        },
+        authorName: authorDisplayName || authorUsername,
+        authorRole: c.author?.id === report.submitterId ? 'researcher' : 'reviewer',
+        body: c.body,
+        createdAt: c.createdAt.toISOString(),
+        isInternal: c.isInternal,
+      };
+    });
+
+    const statusHistory = report.statusHistory.map((sh) => {
+      let changedByName: string = sh.changedBy;
+      const user = userMap[sh.changedBy];
+      if (user) changedByName = user.displayName || user.username;
+      return {
+        status: sh.toStatus,
+        changedAt: sh.createdAt.toISOString(),
+        changedBy: changedByName,
+        note: sh.reason || undefined
+      };
+    });
+
+    const attachments = report.attachments.map((a) => ({
+      id: a.id,
+      name: a.fileName,
+      size: a.sizeBytes,
+      type: a.mimeType,
+      url: "#",
+      uploadedAt: a.createdAt.toISOString(),
+      scanStatus: a.scanStatus === "CLEAN" ? "clean" : a.scanStatus === "INFECTED" ? "infected" : "pending"
+    }));
+
+    // Determine severity (validated takes precedence over estimate)
+    const severity = (report.severityValidated || report.severityEstimate) as Severity;
+    
+    // Determine reward amount if approved
+    const reward = report.reward && report.reward.decision === "APPROVED"
+      ? (report.reward.amountUsd || 0) + (report.reward.bonusUsd || 0)
+      : undefined;
+
+    return {
+      id: report.id,
+      title: report.title,
+      program: report.program,
+      programTitle: report.program.title,
+      programSlug: report.program.slug,
+      severity,
+      severityEstimate: report.severityEstimate,
+      severityValidated: report.severityValidated,
+      status: report.status as ReportStatus,
+      vulnCategory: report.vulnCategory,
+      category: report.vulnCategory,
+      asset: report.asset,
+      affectedAsset: report.asset?.identifier ?? "",
+      affectedAssetType: report.asset?.type ?? "",
+      reproSteps: report.reproSteps,
+      reproductionSteps: report.reproSteps,
+      impactExplanation: report.impactExplanation,
+      impact: report.impactExplanation,
+      remediation: report.suggestedFix ?? undefined,
+      assignee: report.assignee,
+      slaRecords: report.slaRecords,
+      environment: {
+        os: (report.environmentInfo as any)?.os ?? "",
+        browser: (report.environmentInfo as any)?.browser ?? ""
+      },
+      createdAt: report.createdAt.toISOString(),
+      updatedAt: report.updatedAt?.toISOString() ?? report.createdAt.toISOString(),
+      reward,
+      submitter: {
+        username: report.submitter.username,
+        displayName: report.submitter.displayName ?? null,
+        avatarUrl: report.submitter.avatarUrl ?? ""
+      },
+      assignedReviewer: report.assignee
+        ? {
+            username: report.assignee.username,
+            displayName: report.assignee.displayName ?? null
+          }
+        : undefined,
+      attachments,
+      comments,
+      statusHistory,
+      // Org triage detail endpoint does not pass viewer identity to the service.
+      isOwnReport: false
+    };
   }
 
   /**
