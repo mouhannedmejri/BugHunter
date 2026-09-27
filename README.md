@@ -1,4 +1,4 @@
-# BugHuntr — Enterprise Bug Bounty & Vulnerability Coordination Platform
+# BugHunter — Enterprise Bug Bounty & Vulnerability Coordination Platform
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-blue.svg)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-4.28-black.svg)](https://fastify.dev/)
@@ -9,7 +9,7 @@
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D.svg)](https://redis.io/)
 [![BullMQ](https://img.shields.io/badge/BullMQ-5.13-CC292B.svg)](https://bullmq.io/)
 
-**BugHuntr** is an enterprise-grade, full-lifecycle Bug Bounty and Vulnerability Disclosure Platform (VDP) built for ethical security researchers, program management teams, and system administrators. It orchestrates the end-to-end security vulnerability workflow: from authenticated submission, automated duplicate detection, and ClamAV malware scanning, to collaborative triage, SLA management, and secure multi-channel bounty payouts.
+**BugHunter** is an enterprise-grade, full-lifecycle Bug Bounty and Vulnerability Disclosure Platform (VDP) built for ethical security researchers, program management teams, and system administrators. It orchestrates the end-to-end security vulnerability workflow: from authenticated submission, automated duplicate detection, and ClamAV malware scanning, to collaborative triage, SLA management, and secure multi-channel bounty payouts.
 
 ---
 
@@ -49,7 +49,7 @@
 
 ## Overview
 
-Modern software development requires proactive security collaboration. BugHuntr bridges the gap between independent security researchers and organizations by offering:
+Modern software development requires proactive security collaboration. BugHunter bridges the gap between independent security researchers and organizations by offering:
 
 - **Transparent Scope Management**: Granular asset targeting across domains, IP ranges, mobile applications, APIs, and cloud services.
 - **Strict SLA Guarantees**: Time-to-first-response, time-to-triage, and time-to-resolution tracking backed by BullMQ cron workers.
@@ -363,7 +363,7 @@ pnpm dev
 ## AI & RAG (Retrieval-Augmented Generation) Architecture
 
 > [!IMPORTANT]
-> **PFA Focus Area**: This section details the theoretical and practical integration of Artificial Intelligence and Retrieval-Augmented Generation (RAG) into BugHuntr to solve core challenges in cybersecurity vulnerability orchestration.
+> **PFA Focus Area**: This section details the theoretical and practical integration of Artificial Intelligence and Retrieval-Augmented Generation (RAG) into BugHunter to solve core challenges in cybersecurity vulnerability orchestration.
 
 ### The Role of AI & RAG in Modern Bug Bounty
 
@@ -374,13 +374,13 @@ Managing vulnerability disclosure programs at scale poses significant operationa
 3. **Inconsistent CVSS Scoring**: Researchers frequently overestimate vulnerability severity to claim higher payouts, forcing triage teams into lengthy manual evaluations.
 4. **Remediation Delays**: Engineering teams receiving accepted reports often lack clear, actionable code-level remediation advice for the specific vulnerability context.
 
-To solve these problems, BugHuntr integrates a hybrid **Retrieval-Augmented Generation (RAG)** pipeline.
+To solve these problems, BugHunter integrates a hybrid **Retrieval-Augmented Generation (RAG)** pipeline.
 
 ---
 
 ### Current Baseline: Fast Lexical Trigram Matching
 
-BugHuntr currently features an automated asynchronous duplicate detection worker located at:
+BugHunter currently features an automated asynchronous duplicate detection worker located at:
 [`apps/worker/src/processors/duplicate-detection.ts`](apps/worker/src/processors/duplicate-detection.ts)
 
 Whenever a new report is submitted:
@@ -407,7 +407,7 @@ _Limitation_: Trigrams rely on exact lexical substring overlaps and miss semanti
 
 ### The RAG Pipeline Architecture
 
-To elevate BugHuntr into an intelligent security platform, a dedicated RAG architecture augments Large Language Models (LLMs) with private enterprise knowledge and security taxonomies.
+To elevate BugHunter into an intelligent security platform, a dedicated RAG architecture augments Large Language Models (LLMs) with private enterprise knowledge and security taxonomies.
 
 ```mermaid
 flowchart TD
@@ -493,7 +493,7 @@ flowchart TD
 
 ### Vector Database & Embedding Strategy
 
-BugHuntr utilizes a unified data architecture to minimize infrastructure sprawl:
+BugHunter utilizes a unified data architecture to minimize infrastructure sprawl:
 
 | Component           | Technical Selection                               | Justification                                                                                                                                                                                            |
 | :------------------ | :------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -516,7 +516,7 @@ Because vulnerability reports contain sensitive zero-day exploit details, strict
 
 ## Testing & Quality Assurance
 
-BugHuntr maintains rigorous test suites covering unit logic, HTTP endpoints, and end-to-end workflows.
+BugHunter maintains rigorous test suites covering unit logic, HTTP endpoints, and end-to-end workflows.
 
 ### Running Unit & Integration Tests
 
