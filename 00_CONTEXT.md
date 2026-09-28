@@ -89,32 +89,53 @@ Researchers have no org role — they interact via program membership.
 - If invitation is email-based (not bound), signed-in email must match invite email.
 - Invitation acceptance completes membership and moves user onboarding to `COMPLETE`.
 
-## Recent Changes (Auth / Onboarding / Frontend)
-- `apps/api/src/modules/auth/auth.service.ts`
-  - `verifyEmail()` now **does not force** `onboardingStep = CHOOSE_PATH`.
-  - It preserves the step already decided at registration and returns `nextStep` from DB.
-- `apps/api/src/modules/auth/__tests__/verify-email-onboarding.test.ts`
-  - Updated test to assert onboarding step is preserved after verification.
-- `apps/api/src/modules/onboarding/onboarding.service.ts`
-  - `skipInviteWait()` now rejects skipping (org onboarding cannot be bypassed).
-  - User must either create org or accept an invitation.
-- `apps/api/src/modules/onboarding/__tests__/onboarding.service.test.ts`
-  - Updated skip-onboarding test to assert rejection.
-- `frontend/src/pages/onboarding/OnboardingChoice.tsx`
-  - Removed "continue as researcher" path.
-  - Added org-only actions: create org, or accept invite token/code.
-  - Added invite acceptance call to `/invites/accept/:token`.
-- `frontend/src/pages/auth/Login.tsx`
-  - Added post-login return handling for invite URLs (`/invites/accept?...`) to complete acceptance flow.
-- `frontend/src/pages/auth/VerifyEmail.tsx`
-  - Updated UX copy: onboarding is organization-only.
-- `frontend/src/pages/auth/Register.tsx`
-  - Updated researcher subtitle to explicitly state no onboarding.
+## AI & RAG Architecture (New — September 2026)
+- `packages/shared/src/ai.ts`
+  - CVSS 3.1 Base Score Calculator (spec-compliant FIRST formula)
+  - `parseCvss31Vector()` — parses vector strings into structured metrics
+  - `redactSensitiveData()` — zero-retention guardrail strips tokens, API keys, JWTs, private IPs
+  - `cosineSimilarity()` — L2-normalized vector dot product for semantic search
+  - `submissionCopilotInputSchema` + output types for the realtime copilot
+- `packages/shared/src/__tests__/ai.test.ts`
+  - Full unit tests: CVSS calculation, vector parsing, secret redaction, cosine similarity
+- `packages/db/prisma/schema.prisma`
+  - Added: `ReportEmbedding`, `AiTriageAssessment`, `SecurityKnowledge` models with pgvector support
+- `packages/db/prisma/migrations/20260928130000_ai_rag_architecture/migration.sql`
+  - Enables `pgvector` + `pg_trgm` extensions; creates tables + HNSW vector index
+- `apps/api/src/modules/ai/ai.service.ts`
+  - `AiService.generateEmbedding()` — OpenAI `text-embedding-3-small` with deterministic offline fallback
+  - `AiService.createDeterministicEmbedding()` — offline unit-normalized 1536-dim vector using SHA-256 + MD5 n-grams
+  - `AiService.saveReportEmbedding()` — persists embedding to DB; stores native pgvector binary via `$executeRawUnsafe`
+  - `AiService.findDuplicateCandidates()` — hybrid semantic + category similarity with configurable threshold
+  - `AiService.evaluateScope()` — wildcard domain and explicit asset ID scope verification
+  - `AiService.performAiTriage()` — full pipeline: redact → scope → CWE taxonomy match → CVSS 3.1 → duplicate check → upsert `AiTriageAssessment`
+  - `AiService.submissionCopilot()` — completeness scorer with structured feedback items and secret leak detection
+  - `AiService.seedKnowledgeBase()` — seeds `SecurityKnowledge` with OWASP/CWE entries
+- `apps/api/src/modules/ai/ai.routes.ts`
+  - `GET /api/reports/:id/ai-assessment` — returns cached or on-demand AI triage result
+  - `POST /api/reports/:id/ai-assessment/rerun` — forces fresh AI evaluation
+  - `POST /api/ai/submission-copilot` — real-time quality feedback for report drafts
+- `apps/api/src/modules/ai/__tests__/ai.test.ts`
+  - Schema validation, `createDeterministicEmbedding`, `submissionCopilot`, `evaluateScope` unit tests (no DB required)
+- `apps/api/src/app.ts`
+  - Registered `aiRoutes` under `/api` prefix
+- `apps/api/src/modules/reports/reports.service.ts`
+  - `createReport()` now triggers `AiService.saveReportEmbedding()` + `AiService.performAiTriage()` asynchronously
+- `apps/worker/src/processors/duplicate-detection.ts`
+  - Full BullMQ processor for background semantic duplicate detection; flags duplicates and notifies Program Managers
+- `docker-compose.yml`
+  - Updated Postgres image to `pgvector/pgvector:pg16` for native vector support
+- `frontend/src/components/AiTriagePanel.tsx`
+  - Displays AI triage assessment for triagers: CVSS score, predicted severity, scope status, duplicate warning, remediation guide
+  - Integrated into `frontend/src/pages/org/TriageReport.tsx`
+- `frontend/src/components/SubmissionCopilot.tsx`
+  - Real-time completeness scoring for researchers while drafting reports
+  - Integrated into `frontend/src/pages/researcher/SubmitReport.tsx` (Step 1 — Details)
 
 ## Remaining To Do
 - Add backend endpoint for invite-code pre-validation (optional UX improvement).
 - Add E2E tests for:
-  - researcher register -> verify -> login (no onboarding redirect)
-  - company register -> verify -> login (onboarding redirect)
-  - login from invite URL -> accept -> org redirect
+  - researcher register → verify → login (no onboarding redirect)
+  - company register → verify → login (onboarding redirect)
+  - login from invite URL → accept → org redirect
 - Decide whether `/onboarding/skip` route should be removed entirely or kept as disabled/deprecated.

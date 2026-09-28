@@ -1,12 +1,14 @@
 // schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = "postgresql://bughuntr:do691p9Lk9JO@localhost:5432/bughuntr"
+  provider   = "postgresql"
+  url        = "postgresql://bughuntr:do691p9Lk9JO@localhost:5432/bughuntr"
+  extensions = [pgvector(map: "vector"), pg_trgm]
 }
 
 // ─── ENUMS ───────────────────────────────────────────────
@@ -321,9 +323,11 @@ model Program {
   tags                ProgramTag[]
   slaRecords          SlaRecord[]
   rewards             Reward[]
+  embeddings          ReportEmbedding[]
 
   @@index([orgId, status])
 }
+
 
 model ProgramScopeGroup {
   id            String   @id @default(cuid())
@@ -446,11 +450,15 @@ model Report {
   duplicates        Report[]     @relation("Duplicates")
   linkedReports     ReportLink[] @relation("ReportLinks")
   linkedFrom        ReportLink[] @relation("ReportLinksFrom")
+  embedding         ReportEmbedding?
+  aiAssessment      AiTriageAssessment?
+  aiCandidateReports AiTriageAssessment[] @relation("AiDuplicateCandidate")
 
   @@index([programId, status])
   @@index([submitterId])
   @@index([status])
 }
+
 
 model ReportStatusHistory {
   id         String       @id @default(cuid())
@@ -713,3 +721,68 @@ model ReplyTemplate {
   createdBy String
   createdAt DateTime @default(now())
 }
+
+// ─── AI & RAG ARCHITECTURE ────────────────────────────────
+
+model ReportEmbedding {
+  id         String   @id @default(cuid())
+  reportId   String   @unique
+  programId  String
+  orgId      String
+  model      String   @default("text-embedding-3-small")
+  dimensions Int      @default(1536)
+  textHash   String?
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  report     Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  program    Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId])
+  @@index([orgId])
+}
+
+model AiTriageAssessment {
+  id                   String    @id @default(cuid())
+  reportId             String    @unique
+  predictedSeverity    Severity
+  cvssVector           String
+  cvssScore            Float
+  cweId                String?
+  cweName              String?
+  reasoning            String
+  scopeStatus          String    @default("IN_SCOPE") // IN_SCOPE | OUT_OF_SCOPE | UNCERTAIN
+  scopeRationale       String?
+  remediationNotes     String?
+  duplicateCandidateId String?
+  duplicateSimilarity  Float?
+  duplicateRationale   String?
+  status               String    @default("COMPLETED") // PENDING | COMPLETED | FAILED
+  error                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  report               Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  duplicateCandidate   Report?   @relation("AiDuplicateCandidate", fields: [duplicateCandidateId], references: [id], onDelete: SetNull)
+
+  @@index([reportId])
+  @@index([status])
+}
+
+model SecurityKnowledge {
+  id                  String       @id @default(cuid())
+  cweId               String       @unique
+  title               String
+  category            VulnCategory
+  description         String
+  typicalSeverity     Severity
+  cvssBaseVector      String
+  remediationTemplate String
+  embedding           Unsupported("vector(1536)")?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([category])
+}
+

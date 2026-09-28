@@ -2,6 +2,7 @@ import { prisma } from '@bughuntr/db';
 import { NotFoundError, ForbiddenError } from '@bughuntr/shared';
 import type { CreateReportInput } from '@bughuntr/shared';
 import { ProgramService } from '../programs/programs.service.js';
+import { AiService } from '../ai/ai.service.js';
 
 export class ReportsService {
   static async createReport(submitterId: string, data: CreateReportInput) {
@@ -29,8 +30,18 @@ export class ReportsService {
         program: { select: { slug: true, title: true } }
       }
     });
+
+    // Trigger asynchronous AI embedding and automated triage pipeline
+    Promise.allSettled([
+      AiService.saveReportEmbedding(report.id),
+      AiService.performAiTriage(report.id),
+    ]).catch(() => {
+      // Background AI operations never block report creation
+    });
+
     return report;
   }
+
   static async getReportsThisWeek() {
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());

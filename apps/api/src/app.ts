@@ -26,6 +26,7 @@ import { searchRoutes } from './modules/search/search.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 import { integrationsRoutes } from './modules/integrations/integrations.routes.js';
 import { reportsRoutes } from './modules/reports/reports.routes.js';
+import { aiRoutes } from './modules/ai/ai.routes.js';
 import authPlugin from './plugins/auth.js';
 import orgRoleGuardPlugin from './plugins/org-role-guard.js';
 import requireOnboardingCompletePlugin from './plugins/require-onboarding-complete.js';
@@ -150,6 +151,8 @@ export async function buildApp() {
   await app.register(adminRoutes, { prefix: '/api' });
   await app.register(integrationsRoutes, { prefix: '/api' });
   await app.register(reportsRoutes, { prefix: '/api' });
+  await app.register(aiRoutes, { prefix: '/api' });
 
   return app;
 }
+

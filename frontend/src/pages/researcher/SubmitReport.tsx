@@ -12,6 +12,7 @@ import { MDEditor } from "@/components/MDEditor";
 import { FileUploadZone } from "@/components/FileUploadZone";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { SubmissionCopilot } from "@/components/SubmissionCopilot";
 import { useReportDraftStore } from "@/stores/report-draft-store";
 import { vulnerabilityCategories } from "@/lib/report-mock-data";
 import { mockPrograms, type Severity } from "@/lib/mock-data";
@@ -281,6 +282,15 @@ export default function SubmitReport() {
                 onChange={(v) => setField("remediation", v)}
                 placeholder="Suggest a fix (optional)..."
                 minRows={4}
+              />
+
+              {/* AI Submission Quality Copilot — live feedback as the researcher types */}
+              <SubmissionCopilot
+                title={draft.title}
+                reproSteps={draft.reproductionSteps}
+                impactExplanation={draft.impact}
+                vulnCategory={draft.category}
+                targetAsset={assets.find((a: any) => a.id === draft.affectedAssetId)?.identifier || ""}
               />
             </>
           )}

@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  # ─── PostgreSQL 16 ────────────────────────────────────
+  # ─── PostgreSQL 16 with pgvector ───────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: bughuntr-postgres
     restart: unless-stopped
     ports:

@@ -24,6 +24,7 @@ import { TimeAgo } from "@/components/TimeAgo";
 import { StatusTimeline } from "@/components/StatusTimeline";
 import { AttachmentGallery } from "@/components/AttachmentGallery";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AiTriagePanel } from "@/components/AiTriagePanel";
 import type { DetailedReport } from "@/lib/report-mock-data";
 
 type OrgReportDetail = {
@@ -381,7 +382,21 @@ const TriageReport = () => {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
+          <AiTriagePanel
+            reportId={report.id}
+            onApplySeverity={(suggestedSeverity, suggestedCvss) => {
+              setCvss(suggestedCvss.toString());
+              severityMutation.mutate({
+                severity: suggestedSeverity,
+                cvssScore: suggestedCvss,
+              });
+              toast.success(`Applied AI recommended ${suggestedSeverity} (CVSS ${suggestedCvss})`);
+            }}
+            onMarkDuplicate={(candidateId) => duplicateMutation.mutate(candidateId)}
+          />
+
           <Card>
+
             <CardContent className="p-5 space-y-5">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
